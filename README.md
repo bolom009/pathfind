@@ -3,6 +3,7 @@
 Package pathfind finds the shortest path based on graph of squares.
 
 The algorithm works as follows:
+
 First setup:
 - determine all squares wrapped polygon with holes
 - build a visibility graph based on squares edges
