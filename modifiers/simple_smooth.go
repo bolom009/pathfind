@@ -3,16 +3,16 @@ package modifiers
 import (
 	"math"
 
-	"github.com/bolom009/pathfind"
+	"github.com/bolom009/pathfind/poly"
 )
 
 // Simple smoothing a path by either moving the points closer together
-func Simple(path []pathfind.Vector2, uniformLength bool, maxSegmentLength float64, subdivisions int, strength float64, iterations int) []pathfind.Vector2 {
+func Simple(path []coord.Vector2, uniformLength bool, maxSegmentLength float64, subdivisions int, strength float64, iterations int) []coord.Vector2 {
 	if len(path) < 2 {
 		return path
 	}
 
-	subdivided := make([]pathfind.Vector2, 0, len(path))
+	subdivided := make([]coord.Vector2, 0, len(path))
 	if uniformLength {
 		if maxSegmentLength < 0.005 {
 			maxSegmentLength = 0.005
@@ -20,21 +20,21 @@ func Simple(path []pathfind.Vector2, uniformLength bool, maxSegmentLength float6
 
 		var pathLength float64
 		for i := 0; i < len(path)-1; i++ {
-			pathLength += pathfind.Distance(path[i], path[i+1])
+			pathLength += coord.Distance(path[i], path[i+1])
 		}
 
 		estimatedNumberOfSegments := int(math.Floor(pathLength / maxSegmentLength))
-		subdivided = make([]pathfind.Vector2, 0, estimatedNumberOfSegments+2)
+		subdivided = make([]coord.Vector2, 0, estimatedNumberOfSegments+2)
 
 		var distanceAlong float64
 		for i := 0; i < len(path)-1; i++ {
 			var (
 				start  = path[i]
 				end    = path[i+1]
-				length = pathfind.Distance(start, end)
+				length = coord.Distance(start, end)
 			)
 			for distanceAlong < length {
-				subdivided = append(subdivided, pathfind.Lerp(start, end, distanceAlong/length))
+				subdivided = append(subdivided, coord.Lerp(start, end, distanceAlong/length))
 				distanceAlong += maxSegmentLength
 			}
 
@@ -60,7 +60,7 @@ func Simple(path []pathfind.Vector2, uniformLength bool, maxSegmentLength float6
 			prev := subdivided[0]
 			for i := 1; i < len(subdivided)-1; i++ {
 				tmp := subdivided[i]
-				subdivided[i] = pathfind.Lerp(tmp, pathfind.Vector2{
+				subdivided[i] = coord.Lerp(tmp, coord.Vector2{
 					X: (prev.X + subdivided[i+1].X) / 2,
 					Y: (prev.Y + subdivided[i+1].Y) / 2,
 				}, strength)
@@ -73,11 +73,11 @@ func Simple(path []pathfind.Vector2, uniformLength bool, maxSegmentLength float6
 	return subdivided
 }
 
-func subdivide(path []pathfind.Vector2, subSegments int) []pathfind.Vector2 {
-	result := make([]pathfind.Vector2, 0)
+func subdivide(path []coord.Vector2, subSegments int) []coord.Vector2 {
+	result := make([]coord.Vector2, 0)
 	for i := 0; i < len(path)-1; i++ {
 		for j := 0; j < subSegments; j++ {
-			point := pathfind.Lerp(path[i], path[i+1], float64(j/subSegments))
+			point := coord.Lerp(path[i], path[i+1], float64(j/subSegments))
 			result = append(result, point)
 		}
 	}

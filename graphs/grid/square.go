@@ -1,8 +1,12 @@
-package pathfind
+package grid
+
+import (
+	"github.com/bolom009/pathfind/vec"
+)
 
 // Square represent square with four points, also include info about each point if it's inside polygon
 type Square struct {
-	A, B, C, D, Center Vector2
+	A, B, C, D, Center vec.Vector2
 	// represent each point inside polygon
 	isA, isB, isC, isD, isCenter bool
 }
@@ -10,20 +14,20 @@ type Square struct {
 // Edges return list of all square edges
 func (s *Square) Edges() []Edge {
 	return []Edge{
-		{A: Vector2{X: s.A.X, Y: s.A.Y}, B: Vector2{X: s.B.X, Y: s.B.Y}},
-		{A: Vector2{X: s.B.X, Y: s.B.Y}, B: Vector2{X: s.C.X, Y: s.C.Y}},
-		{A: Vector2{X: s.C.X, Y: s.C.Y}, B: Vector2{X: s.D.X, Y: s.D.Y}},
-		{A: Vector2{X: s.D.X, Y: s.D.Y}, B: Vector2{X: s.A.X, Y: s.A.Y}},
+		{A: vec.Vector2{X: s.A.X, Y: s.A.Y}, B: vec.Vector2{X: s.B.X, Y: s.B.Y}},
+		{A: vec.Vector2{X: s.B.X, Y: s.B.Y}, B: vec.Vector2{X: s.C.X, Y: s.C.Y}},
+		{A: vec.Vector2{X: s.C.X, Y: s.C.Y}, B: vec.Vector2{X: s.D.X, Y: s.D.Y}},
+		{A: vec.Vector2{X: s.D.X, Y: s.D.Y}, B: vec.Vector2{X: s.A.X, Y: s.A.Y}},
 	}
 }
 
 // Edge represent square edge
 type Edge struct {
-	A, B Vector2
+	A, B vec.Vector2
 }
 
 // isPointInsideSquare checks if point inside square
-func (s *Square) isPointInsideSquare(point Vector2) bool {
+func (s *Square) isPointInsideSquare(point vec.Vector2) bool {
 	// Assuming the square is axis-aligned, we can check the coordinates
 	minX := s.A.X
 	maxX := s.A.X

@@ -1,12 +1,16 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"math"
 	"time"
 
+	"github.com/bolom009/pathfind/graphs/grid"
+
 	"github.com/bolom009/pathfind"
 	"github.com/bolom009/pathfind/demo/polyjson"
+	"github.com/bolom009/pathfind/vec"
 	rlgui "github.com/gen2brain/raylib-go/raygui"
 	rl "github.com/gen2brain/raylib-go/raylib"
 )
@@ -21,22 +25,25 @@ func main() {
 	}
 
 	var (
-		//start  = pathfind.Vector2{X: 245, Y: 78}
-		start         = pathfind.Vector2{X: 31, Y: 571}
-		dest          = pathfind.Vector2{X: 644, Y: 403}
+		ctx           = context.Background()
+		start         = vec.Vector2{X: 31, Y: 571}
+		dest          = vec.Vector2{X: 644, Y: 403}
 		squareSize    = 11.0
-		pathfinder    = pathfind.NewPathfinder(polygon, holes, squareSize)
-		camera        = rl.NewCamera2D(rl.NewVector2(0, 0), rl.NewVector2(float32(-screen.X/2), float32(-screen.Y/2)), 0, 0.5)
+		gridGraph     = grid.NewGrid(polygon, holes, float32(squareSize))
+		pathfinder    = pathfind.NewPathfinder[vec.Vector2](gridGraph)
+		camera        = rl.NewCamera2D(rl.NewVector2(0, 0), rl.NewVector2(-screen.X/2, -screen.Y/2), 0, 0.5)
 		isDrawGraph   = false
 		isDrawSquares = false
 
 		initTime string
 		pathTime string
-		path     []pathfind.Vector2 = nil
+		path     []vec.Vector2 = nil
 	)
 
 	t := time.Now()
-	pathfinder.Initialize()
+	if err := pathfinder.Initialize(ctx); err != nil {
+		panic(err)
+	}
 	initTime = time.Since(t).String()
 
 	t2 := time.Now()
@@ -81,7 +88,7 @@ func main() {
 		drawMap(polygon, holes)
 
 		if isDrawSquares {
-			drawSquares(pathfinder.Squares())
+			drawSquares(gridGraph.Squares())
 		}
 		if isDrawGraph {
 			drawGraph(pathfinder.GraphWithSearchPath(start, dest))
@@ -91,9 +98,9 @@ func main() {
 
 		if rl.IsMouseButtonPressed(rl.MouseLeftButton) {
 			t3 := time.Now()
-			searchPath := pathfinder.Path(start, pathfind.Vector2{X: float64(mouseWorldPos.X), Y: float64(mouseWorldPos.Y)})
+			searchPath := pathfinder.Path(start, vec.Vector2{X: mouseWorldPos.X, Y: mouseWorldPos.Y})
 			if len(searchPath) > 2 {
-				path = pathfinder.Path(start, pathfind.Vector2{X: float64(mouseWorldPos.X), Y: float64(mouseWorldPos.Y)})
+				path = searchPath
 				pathTime = time.Since(t3).String()
 			}
 		}
@@ -109,7 +116,7 @@ func main() {
 	rl.CloseWindow()
 }
 
-func drawGraph(graph map[pathfind.Vector2][]pathfind.Vector2) {
+func drawGraph(graph map[vec.Vector2][]vec.Vector2) {
 	for p, elems := range graph {
 		for _, elem := range elems {
 			rl.DrawLine(int32(p.X), int32(p.Y), int32(elem.X), int32(elem.Y), rl.NewColor(230, 41, 55, 30))
@@ -117,7 +124,7 @@ func drawGraph(graph map[pathfind.Vector2][]pathfind.Vector2) {
 	}
 }
 
-func drawMap(polygon []pathfind.Vector2, holes [][]pathfind.Vector2) {
+func drawMap(polygon []vec.Vector2, holes [][]vec.Vector2) {
 	polyLen := len(polygon)
 	for range polygon {
 		for i := range polyLen - 1 {
@@ -147,7 +154,7 @@ func drawMap(polygon []pathfind.Vector2, holes [][]pathfind.Vector2) {
 	}
 }
 
-func drawSquares(squares []pathfind.Square) {
+func drawSquares(squares []grid.Square) {
 	for _, square := range squares {
 		//rl.DrawCircle(int32(square.Center.X), int32(square.Center.Y), 1.0, rl.Blue)
 		edges := square.Edges()
@@ -157,7 +164,7 @@ func drawSquares(squares []pathfind.Square) {
 	}
 }
 
-func drawPath(path []pathfind.Vector2, color rl.Color, skipNumbers ...bool) {
+func drawPath(path []vec.Vector2, color rl.Color, skipNumbers ...bool) {
 	isSkipNumbers := false
 	if len(skipNumbers) > 0 {
 		isSkipNumbers = true
@@ -195,15 +202,4 @@ func drawTopPanel(width int32, tPos rl.Vector2, isDrawGraph, isDrawSquares *bool
 	rlgui.Label(rl.NewRectangle(340, 10, 150, 15), "Path time: "+pathTime)
 	rl.DrawText(" | ", 440, 10, 15, rl.Gray)
 	rlgui.Label(rl.NewRectangle(460, 10, 150, 15), fmt.Sprintf("Square size: %v", squareSize))
-}
-
-func moveTowards(current rl.Vector2, target rl.Vector2, maxDistanceDelta float32) (float32, float32) {
-	num1, num2 := target.X-current.X, target.Y-current.Y
-	d := num1*num1 + num2*num2
-	if d == 0.0 || maxDistanceDelta >= 0.0 && d <= maxDistanceDelta*maxDistanceDelta {
-		return target.X, target.Y
-	}
-
-	num3 := float32(math.Sqrt(float64(d)))
-	return current.X + num1/num3*maxDistanceDelta, current.Y + num2/num3*maxDistanceDelta
 }
