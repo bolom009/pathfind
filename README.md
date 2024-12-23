@@ -30,5 +30,4 @@ To remove console window, build with `-ldflags "-H=windowsgui"`.
 
 ## Demo
 
-https://github.com/user-attachments/assets/cacff5f8-c8ee-4bb8-bca7-a233c6cdbc6f
-
+https://github.com/user-attachments/assets/9e2f6886-fb80-4e4e-a905-99402a5083b6
