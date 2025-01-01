@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"github.com/bolom009/pathfind/graphs"
 	"math"
 	"time"
 
@@ -25,13 +26,16 @@ func main() {
 	}
 
 	var (
-		ctx           = context.Background()
-		start         = vec.Vector2{X: 31, Y: 571}
-		dest          = vec.Vector2{X: 644, Y: 403}
-		squareSize    = 11.0
-		gridGraph     = grid.NewGrid(polygon, holes, float32(squareSize))
-		pathfinder    = pathfind.NewPathfinder[vec.Vector2](gridGraph)
+		ctx        = context.Background()
+		start      = vec.Vector2{X: 31, Y: 571}
+		dest       = vec.Vector2{X: 644, Y: 403}
+		squareSize = 11.0
+		gridGraph  = grid.NewGrid(polygon, holes, float32(squareSize))
+		pathfinder = pathfind.NewPathfinder[vec.Vector2]([]graphs.IGraph[vec.Vector2]{
+			gridGraph,
+		})
 		camera        = rl.NewCamera2D(rl.NewVector2(0, 0), rl.NewVector2(-screen.X/2, -screen.Y/2), 0, 0.5)
+		graphId       = 0
 		isDrawGraph   = false
 		isDrawSquares = false
 
@@ -47,7 +51,7 @@ func main() {
 	initTime = time.Since(t).String()
 
 	t2 := time.Now()
-	path = pathfinder.Path(start, dest)
+	path = pathfinder.Path(graphId, start, dest)
 	pathTime = time.Since(t2).String()
 
 	rl.InitWindow(int32(screen.X), int32(screen.Y), "Test *A")
@@ -91,14 +95,14 @@ func main() {
 			drawSquares(gridGraph.Squares())
 		}
 		if isDrawGraph {
-			drawGraph(pathfinder.GraphWithSearchPath(start, dest))
+			drawGraph(pathfinder.GraphWithSearchPath(graphId, start, dest))
 		}
 
 		drawPath(path, rl.Green, true)
 
 		if rl.IsMouseButtonPressed(rl.MouseLeftButton) {
 			t3 := time.Now()
-			searchPath := pathfinder.Path(start, vec.Vector2{X: mouseWorldPos.X, Y: mouseWorldPos.Y})
+			searchPath := pathfinder.Path(graphId, start, vec.Vector2{X: mouseWorldPos.X, Y: mouseWorldPos.Y})
 			if len(searchPath) > 2 {
 				path = searchPath
 				pathTime = time.Since(t3).String()
