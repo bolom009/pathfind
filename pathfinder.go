@@ -10,12 +10,12 @@ import (
 // Pathfinder represent struct to operate with pathfinding
 // Graph of current pathfinder represent as list of squares
 type Pathfinder[Node comparable] struct {
-	graphs []graphs.IGraph[Node]
+	graphs []graphs.NavGraph[Node]
 }
 
 // NewPathfinder constructor to create pathfinder struct
 // polygons contains two parts: polygon and holes
-func NewPathfinder[Node comparable](graphs []graphs.IGraph[Node]) *Pathfinder[Node] {
+func NewPathfinder[Node comparable](graphs []graphs.NavGraph[Node]) *Pathfinder[Node] {
 	p := &Pathfinder[Node]{
 		graphs: graphs,
 	}
@@ -35,15 +35,15 @@ func (p *Pathfinder[Node]) Initialize(ctx context.Context) error {
 }
 
 // Path finds the shortest path from start to dest
-// If dest is outside the polygon set it will be clamped to the nearest polygon point.
+// To search path could be added dynamic obstacles. All obstacles will cut current graph by their polygon.
 // The function returns nil if no path exists
-func (p *Pathfinder[Node]) Path(graphID int, start, dest Node) []Node {
+func (p *Pathfinder[Node]) Path(graphID int, start, dest Node, obstacles ...graphs.Obstacle) []Node {
 	g := p.graphs[graphID]
 	if g == nil {
 		return nil
 	}
 
-	vis := g.AggregationGraph(start, dest)
+	vis := g.AggregationGraph(start, dest, obstacles)
 
 	return astar.FindPath[Node](vis, start, dest, g.Cost, g.Cost)
 }
@@ -63,11 +63,11 @@ func (p *Pathfinder[Node]) GraphsNum() int {
 }
 
 // GraphWithSearchPath return generated graph with path nodes
-func (p *Pathfinder[Node]) GraphWithSearchPath(graphID int, start, dest Node) map[Node][]Node {
+func (p *Pathfinder[Node]) GraphWithSearchPath(graphID int, start, dest Node, obstacles ...graphs.Obstacle) map[Node][]Node {
 	g := p.graphs[graphID]
 	if g == nil {
 		return nil
 	}
 
-	return g.AggregationGraph(start, dest)
+	return g.AggregationGraph(start, dest, obstacles)
 }

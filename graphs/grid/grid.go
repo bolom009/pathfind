@@ -52,9 +52,29 @@ func (g *Grid) GetVisibility() graphs.Graph[vec.Vector2] {
 func (g *Grid) Cost(a, b vec.Vector2) float64 { return g.costFunc(a, b) }
 
 // AggregationGraph add start and dest points to existing pathfinder graph
-func (g *Grid) AggregationGraph(start, dest vec.Vector2) graphs.Graph[vec.Vector2] {
+func (g *Grid) AggregationGraph(start, dest vec.Vector2, obstacles []graphs.Obstacle) graphs.Graph[vec.Vector2] {
 	vis := g.visibilityGraph.Copy()
 
+	// add start & dest points to graph
+	g.addStartDestPointsToGraph(vis, start, dest)
+
+	if obstacles != nil {
+		// cut graph with obstacles
+		g.updateGraphWithObstacles(vis, obstacles)
+	}
+
+	return vis
+}
+
+// Squares return copied list of squares
+func (g *Grid) Squares() []Square {
+	cSquares := make([]Square, len(g.squares))
+	copy(cSquares, g.squares)
+
+	return cSquares
+}
+
+func (g *Grid) addStartDestPointsToGraph(vis graphs.Graph[vec.Vector2], start vec.Vector2, dest vec.Vector2) {
 	for _, square := range g.squares {
 		var (
 			a   = square.A
@@ -70,16 +90,16 @@ func (g *Grid) AggregationGraph(start, dest vec.Vector2) graphs.Graph[vec.Vector
 		if square.isPointInsideSquare(start) {
 			g.addPairs(vis, start, []gridPair{{a, isA}, {b, isB}, {c, isC}, {d, isD}})
 
-			if isA && g.isLineSegmentInsidePolygon(a, start) {
+			if isA && g.isLineSegmentInsidePolygonOrHoles(a, start) {
 				vis.Link(a, start)
 			}
-			if isB && g.isLineSegmentInsidePolygon(b, start) {
+			if isB && g.isLineSegmentInsidePolygonOrHoles(b, start) {
 				vis.Link(b, start)
 			}
-			if isC && g.isLineSegmentInsidePolygon(c, start) {
+			if isC && g.isLineSegmentInsidePolygonOrHoles(c, start) {
 				vis.Link(c, start)
 			}
-			if isD && g.isLineSegmentInsidePolygon(d, start) {
+			if isD && g.isLineSegmentInsidePolygonOrHoles(d, start) {
 				vis.Link(d, start)
 			}
 		}
@@ -87,31 +107,86 @@ func (g *Grid) AggregationGraph(start, dest vec.Vector2) graphs.Graph[vec.Vector
 		if square.isPointInsideSquare(dest) {
 			g.addPairs(vis, dest, []gridPair{{a, isA}, {b, isB}, {c, isC}, {d, isD}})
 
-			if isA && g.isLineSegmentInsidePolygon(a, dest) {
+			if isA && g.isLineSegmentInsidePolygonOrHoles(a, dest) {
 				vis.Link(a, dest)
 			}
-			if isB && g.isLineSegmentInsidePolygon(b, dest) {
+			if isB && g.isLineSegmentInsidePolygonOrHoles(b, dest) {
 				vis.Link(b, dest)
 			}
-			if isC && g.isLineSegmentInsidePolygon(c, dest) {
+			if isC && g.isLineSegmentInsidePolygonOrHoles(c, dest) {
 				vis.Link(c, dest)
 			}
-			if isD && g.isLineSegmentInsidePolygon(d, dest) {
+			if isD && g.isLineSegmentInsidePolygonOrHoles(d, dest) {
 				vis.Link(d, dest)
 			}
 		}
 	}
-
-	return vis
 }
 
-func (g *Grid) Squares() []Square {
-	cSquares := make([]Square, len(g.squares))
-	for i, square := range g.squares {
-		cSquares[i] = square
-	}
+func (g *Grid) updateGraphWithObstacles(vis graphs.Graph[vec.Vector2], obstacles []graphs.Obstacle) {
+	for _, square := range g.squares {
+		for _, obstacle := range obstacles {
+			if !obstacle.IsPointAround(square.Center, g.squareSize) {
+				continue
+			}
 
-	return cSquares
+			var (
+				a               = square.A
+				b               = square.B
+				c               = square.C
+				d               = square.D
+				isA             = square.isA
+				isB             = square.isB
+				isC             = square.isC
+				isD             = square.isD
+				obstaclePolygon = obstacle.GetPolygon()
+			)
+
+			// check edges list
+			if isA {
+				for neighbour := range vis.Neighbours(a) {
+					if isLineSegmentInsidePolygon(obstaclePolygon, a, neighbour) {
+						vis.DeleteNeighbour(a, neighbour)
+					}
+				}
+			}
+			if isB {
+				for neighbour := range vis.Neighbours(b) {
+					if isLineSegmentInsidePolygon(obstaclePolygon, b, neighbour) {
+						vis.DeleteNeighbour(b, neighbour)
+					}
+				}
+			}
+			if isC {
+				for neighbour := range vis.Neighbours(c) {
+					if isLineSegmentInsidePolygon(obstaclePolygon, c, neighbour) {
+						vis.DeleteNeighbour(c, neighbour)
+					}
+				}
+			}
+			if isD {
+				for neighbour := range vis.Neighbours(d) {
+					if isLineSegmentInsidePolygon(obstaclePolygon, d, neighbour) {
+						vis.DeleteNeighbour(d, neighbour)
+					}
+				}
+			}
+
+			// check vertex list
+			if isA && pointInPolygon(a, obstaclePolygon) {
+				vis.DeleteNode(a)
+			}
+			if isB && pointInPolygon(b, obstaclePolygon) {
+				vis.DeleteNode(b)
+			}
+			if isC && pointInPolygon(c, obstaclePolygon) {
+				vis.DeleteNode(c)
+			}
+			if isD && pointInPolygon(d, obstaclePolygon) {
+				vis.DeleteNode(d)
+			}
+		}
+	}
 }
 
 // generateGraph create visibility graph based on squares
@@ -135,11 +210,11 @@ func (g *Grid) generateGraph() graphs.Graph[vec.Vector2] {
 		if isD {
 			g.addPairs(vis, d, []gridPair{{a, isA}, {c, isC}})
 		}
-		if isA && isC && g.isLineSegmentInsidePolygon(a, c) {
+		if isA && isC && g.isLineSegmentInsidePolygonOrHoles(a, c) {
 			vis.Link(a, c)
 			vis.Link(c, a)
 		}
-		if isB && isD && g.isLineSegmentInsidePolygon(b, d) {
+		if isB && isD && g.isLineSegmentInsidePolygonOrHoles(b, d) {
 			vis.Link(b, d)
 			vis.Link(d, b)
 		}
@@ -275,24 +350,14 @@ func (g *Grid) isInsidePolygonWithHoles(point vec.Vector2) bool {
 	return true
 }
 
-// isLineSegmentInsidePolygon function to check if a line segment is inside a polygon
-func (g *Grid) isLineSegmentInsidePolygon(lineStart, lineEnd vec.Vector2) bool {
-	var (
-		polygon = g.polygon
-		holes   = g.holes
-	)
-
+// isLineSegmentInsidePolygonOrHoles function to check if a line segment is inside a polygon or holes
+func (g *Grid) isLineSegmentInsidePolygonOrHoles(lineStart, lineEnd vec.Vector2) bool {
 	// Check if the line segment intersects any of the polygon edges
-	n := len(polygon)
-	for i := 0; i < n; i++ {
-		p1 := polygon[i]
-		p2 := polygon[(i+1)%n]
-		if doLinesIntersect(lineStart, lineEnd, p1, p2) {
-			return false // The line segment intersects the polygon edge
-		}
+	if isLineSegmentInsidePolygon(g.polygon, lineStart, lineEnd) {
+		return false
 	}
 
-	for _, hole := range holes {
+	for _, hole := range g.holes {
 		for i := 0; i < len(hole)-1; i++ {
 			if doLinesIntersect(lineStart, lineEnd, hole[i], hole[i+1]) {
 				return false // Intersects a hole
@@ -301,6 +366,20 @@ func (g *Grid) isLineSegmentInsidePolygon(lineStart, lineEnd vec.Vector2) bool {
 	}
 
 	return true // Line segment is completely inside the polygon
+}
+
+// isLineSegmentInsidePolygon function to check if a line segment is inside a polygon
+func isLineSegmentInsidePolygon(polygon []vec.Vector2, lineStart, lineEnd vec.Vector2) bool {
+	n := len(polygon)
+	for i := 0; i < n; i++ {
+		p1 := polygon[i]
+		p2 := polygon[(i+1)%n]
+		if doLinesIntersect(lineStart, lineEnd, p1, p2) {
+			return true // The line segment intersects the polygon edge
+		}
+	}
+
+	return false
 }
 
 // Function to check if two lines intersect

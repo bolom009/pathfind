@@ -2,14 +2,22 @@ package graphs
 
 import (
 	"context"
+	"github.com/bolom009/pathfind/vec"
 	"iter"
 	"slices"
 )
 
-// IGraph is represented an interface for graph types
-type IGraph[Node comparable] interface {
+// Obstacle is represented an interface for shape of obstacle
+type Obstacle interface {
+	GetCenter() vec.Vector2
+	GetPolygon() []vec.Vector2
+	IsPointAround(point vec.Vector2, edgeLen float32) bool
+}
+
+// NavGraph is represented an interface for graph types
+type NavGraph[Node comparable] interface {
 	Generate(ctx context.Context) error
-	AggregationGraph(Node, Node) Graph[Node]
+	AggregationGraph(Node, Node, []Obstacle) Graph[Node]
 	GetVisibility() Graph[Node]
 	ContainsPoint(Node) bool
 	Cost(Node, Node) float64
@@ -24,11 +32,37 @@ func (g Graph[Node]) Link(a, b Node) Graph[Node] {
 	return g
 }
 
+func (g Graph[Node]) DeleteNode(node Node) Graph[Node] {
+	if _, ok := g[node]; ok {
+		delete(g, node)
+	}
+
+	return g
+}
+
+func (g Graph[Node]) DeleteNeighbour(node, neighbour Node) Graph[Node] {
+	if neighbours, ok := g[node]; ok {
+		newSlice := make([]Node, 0, len(neighbours)-1)
+		for _, n := range neighbours {
+			if neighbour != n {
+				newSlice = append(newSlice, n)
+			}
+		}
+
+		g[node] = newSlice
+	}
+
+	return g
+}
+
 // Copy return copy of graph
 func (g Graph[Node]) Copy() Graph[Node] {
 	cGraph := make(Graph[Node])
 	for k, v := range g {
-		cGraph[k] = v
+		cv := make([]Node, len(v))
+		copy(cv, v)
+
+		cGraph[k] = cv
 	}
 	return cGraph
 }

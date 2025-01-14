@@ -3,14 +3,14 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/bolom009/pathfind/graphs"
 	"math"
 	"time"
 
-	"github.com/bolom009/pathfind/graphs/grid"
-
 	"github.com/bolom009/pathfind"
 	"github.com/bolom009/pathfind/demo/polyjson"
+	"github.com/bolom009/pathfind/graphs"
+	"github.com/bolom009/pathfind/graphs/grid"
+	"github.com/bolom009/pathfind/obstacles"
 	"github.com/bolom009/pathfind/vec"
 	rlgui "github.com/gen2brain/raylib-go/raygui"
 	rl "github.com/gen2brain/raylib-go/raylib"
@@ -31,9 +31,15 @@ func main() {
 		dest       = vec.Vector2{X: 644, Y: 403}
 		squareSize = 11.0
 		gridGraph  = grid.NewGrid(polygon, holes, float32(squareSize))
-		pathfinder = pathfind.NewPathfinder[vec.Vector2]([]graphs.IGraph[vec.Vector2]{
+		pathfinder = pathfind.NewPathfinder[vec.Vector2]([]graphs.NavGraph[vec.Vector2]{
 			gridGraph,
 		})
+		dynamicObstacles = []graphs.Obstacle{
+			obstacles.GenerateCircle(vec.Vector2{X: 335, Y: 247}, 18, 15),
+			obstacles.GenerateCircle(vec.Vector2{X: 507, Y: 526}, 30, 30),
+			obstacles.GenerateCircle(vec.Vector2{X: 310, Y: 224}, 17, 15),
+			obstacles.GenerateRectangle(vec.Vector2{X: 403, Y: 45}, 500, 20),
+		}
 		camera        = rl.NewCamera2D(rl.NewVector2(0, 0), rl.NewVector2(-screen.X/2, -screen.Y/2), 0, 0.5)
 		graphId       = 0
 		isDrawGraph   = false
@@ -51,9 +57,10 @@ func main() {
 	initTime = time.Since(t).String()
 
 	t2 := time.Now()
-	path = pathfinder.Path(graphId, start, dest)
+	path = pathfinder.Path(graphId, start, dest, dynamicObstacles...)
 	pathTime = time.Since(t2).String()
 
+	rl.SetTraceLogLevel(rl.LogError)
 	rl.InitWindow(int32(screen.X), int32(screen.Y), "Test *A")
 	for {
 		if rl.WindowShouldClose() {
@@ -89,20 +96,21 @@ func main() {
 
 		rl.BeginMode2D(camera)
 		rl.ClearBackground(rl.White)
-		drawMap(polygon, holes)
+		drawMap(polygon, holes, dynamicObstacles)
 
 		if isDrawSquares {
 			drawSquares(gridGraph.Squares())
 		}
 		if isDrawGraph {
-			drawGraph(pathfinder.GraphWithSearchPath(graphId, start, dest))
+			dGraph := pathfinder.GraphWithSearchPath(graphId, start, dest, dynamicObstacles...)
+			drawGraph(dGraph)
 		}
 
-		drawPath(path, rl.Green, true)
+		drawPath(path, rl.Green, camera.Zoom, true)
 
 		if rl.IsMouseButtonPressed(rl.MouseLeftButton) {
 			t3 := time.Now()
-			searchPath := pathfinder.Path(graphId, start, vec.Vector2{X: mouseWorldPos.X, Y: mouseWorldPos.Y})
+			searchPath := pathfinder.Path(graphId, start, vec.Vector2{X: mouseWorldPos.X, Y: mouseWorldPos.Y}, dynamicObstacles...)
 			if len(searchPath) > 2 {
 				path = searchPath
 				pathTime = time.Since(t3).String()
@@ -128,7 +136,7 @@ func drawGraph(graph map[vec.Vector2][]vec.Vector2) {
 	}
 }
 
-func drawMap(polygon []vec.Vector2, holes [][]vec.Vector2) {
+func drawMap(polygon []vec.Vector2, holes [][]vec.Vector2, dynamicObstacles []graphs.Obstacle) {
 	polyLen := len(polygon)
 	for range polygon {
 		for i := range polyLen - 1 {
@@ -156,6 +164,24 @@ func drawMap(polygon []vec.Vector2, holes [][]vec.Vector2) {
 		startPos, endPos := hole[n-1], hole[0]
 		rl.DrawLine(int32(startPos.X), int32(startPos.Y), int32(endPos.X), int32(endPos.Y), rl.SkyBlue)
 	}
+
+	for _, obstacle := range dynamicObstacles {
+		polygon := obstacle.GetPolygon()
+
+		n := len(polygon)
+		if n < 2 {
+			return
+		}
+
+		for i := range len(polygon) - 1 {
+			p1, p2 := polygon[i], polygon[i+1]
+			rl.DrawLine(int32(p1.X), int32(p1.Y), int32(p2.X), int32(p2.Y), rl.Magenta)
+		}
+
+		// DRAW END LINES
+		startPos, endPos := polygon[n-1], polygon[0]
+		rl.DrawLine(int32(startPos.X), int32(startPos.Y), int32(endPos.X), int32(endPos.Y), rl.Magenta)
+	}
 }
 
 func drawSquares(squares []grid.Square) {
@@ -168,7 +194,7 @@ func drawSquares(squares []grid.Square) {
 	}
 }
 
-func drawPath(path []vec.Vector2, color rl.Color, skipNumbers ...bool) {
+func drawPath(path []vec.Vector2, color rl.Color, zoom float32, skipNumbers ...bool) {
 	isSkipNumbers := false
 	if len(skipNumbers) > 0 {
 		isSkipNumbers = true
@@ -190,8 +216,8 @@ func drawPath(path []vec.Vector2, color rl.Color, skipNumbers ...bool) {
 
 	last := len(path) - 1
 
-	rl.DrawCircle(int32(path[0].X), int32(path[0].Y), 2.8, color)
-	rl.DrawCircle(int32(path[last].X), int32(path[last].Y), 2.8, color)
+	rl.DrawCircle(int32(path[0].X), int32(path[0].Y), 2.5/zoom, color)
+	rl.DrawCircle(int32(path[last].X), int32(path[last].Y), 2.5/zoom, color)
 }
 
 func drawTopPanel(width int32, tPos rl.Vector2, isDrawGraph, isDrawSquares *bool, initTime, pathTime string, squareSize float64) {

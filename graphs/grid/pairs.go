@@ -13,7 +13,7 @@ type gridPair struct {
 func (g *Grid) addPairs(vis graphs.Graph[vec.Vector2], dest vec.Vector2, pairs []gridPair) {
 	points := make([]vec.Vector2, 0)
 	for _, pair := range pairs {
-		if pair.is && g.isLineSegmentInsidePolygon(dest, pair.point) {
+		if pair.is && g.isLineSegmentInsidePolygonOrHoles(dest, pair.point) {
 			points = append(points, pair.point)
 		}
 	}
