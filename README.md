@@ -9,7 +9,7 @@ First setup:
 - build a visibility graph based on squares edges
 
 Path search:
-- add start and end points to visibility graph
+- add start and end points to visibility graph (include dynamic obstacles are optional)
 - use the A* search algorithm (package [astar](https://github.com/fzipp/astar))
   on the visibility graph to find the shortest path
 
@@ -30,4 +30,5 @@ To remove console window, build with `-ldflags "-H=windowsgui"`.
 
 ## Demo
 
-https://github.com/user-attachments/assets/9e2f6886-fb80-4e4e-a905-99402a5083b6
+
+https://github.com/user-attachments/assets/0b42c86e-662f-4553-8fec-f64a3d0048b1
