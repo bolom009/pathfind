@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"github.com/bolom009/pathfind/graphs"
-	"github.com/bolom009/pathfind/obstacles"
 	"github.com/fzipp/astar"
 )
 
@@ -38,13 +37,18 @@ func (p *Pathfinder[Node]) Initialize(ctx context.Context) error {
 // Path finds the shortest path from start to dest
 // To search path could be added dynamic obstacles. All obstacles will cut current graph by their polygon.
 // The function returns nil if no path exists
-func (p *Pathfinder[Node]) Path(graphID int, start, dest Node, obstacles ...obstacles.Obstacle) []Node {
+func (p *Pathfinder[Node]) Path(graphID int, start, dest Node, opts ...PathOption) []Node {
 	g := p.graphs[graphID]
 	if g == nil {
 		return nil
 	}
 
-	vis := g.AggregationGraph(start, dest, obstacles)
+	navOpts := &graphs.NavOpts{}
+	for _, opt := range opts {
+		opt(navOpts)
+	}
+
+	vis := g.AggregationGraph(start, dest, navOpts)
 
 	return astar.FindPath[Node](vis, start, dest, g.Cost, g.Cost)
 }
@@ -64,11 +68,16 @@ func (p *Pathfinder[Node]) GraphsNum() int {
 }
 
 // GraphWithSearchPath return generated graph with path nodes
-func (p *Pathfinder[Node]) GraphWithSearchPath(graphID int, start, dest Node, obstacles ...obstacles.Obstacle) map[Node][]Node {
+func (p *Pathfinder[Node]) GraphWithSearchPath(graphID int, start, dest Node, opts ...PathOption) map[Node][]Node {
 	g := p.graphs[graphID]
 	if g == nil {
 		return nil
 	}
 
-	return g.AggregationGraph(start, dest, obstacles)
+	navOpts := &graphs.NavOpts{}
+	for _, opt := range opts {
+		opt(navOpts)
+	}
+
+	return g.AggregationGraph(start, dest, navOpts)
 }

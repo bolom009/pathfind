@@ -2,16 +2,23 @@ package graphs
 
 import (
 	"context"
+	"github.com/bolom009/pathfind/obstacles"
 	"iter"
 	"slices"
-
-	"github.com/bolom009/pathfind/obstacles"
 )
+
+// NavOpts contains optional objects for aggregation graph
+// Obstacles parameter will exclude nodes & edges of generated graph by obstacles polygon
+// AgentRadius parameter will take into account the path search by agent radius
+type NavOpts struct {
+	Obstacles   []obstacles.Obstacle
+	AgentRadius float32
+}
 
 // NavGraph is represented an interface for graph types
 type NavGraph[Node comparable] interface {
 	Generate(ctx context.Context) error
-	AggregationGraph(Node, Node, []obstacles.Obstacle) Graph[Node]
+	AggregationGraph(Node, Node, *NavOpts) Graph[Node]
 	GetVisibility() Graph[Node]
 	ContainsPoint(Node) bool
 	Cost(Node, Node) float64

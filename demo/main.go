@@ -69,7 +69,7 @@ func main() {
 	initTime = time.Since(t).String()
 
 	t2 := time.Now()
-	path = pathfinder.Path(graphId, start, dest, dynamicObstacles...)
+	path = pathfinder.Path(graphId, start, dest, pathfind.WithObstacles(dynamicObstacles))
 	pathTime = time.Since(t2).String()
 
 	rl.SetTraceLogLevel(rl.LogError)
@@ -121,7 +121,7 @@ func main() {
 			drawSquares(gridGraph.Squares())
 		}
 		if isDrawGraph {
-			dGraph := pathfinder.GraphWithSearchPath(graphId, start, dest, dynamicObstacles...)
+			dGraph := pathfinder.GraphWithSearchPath(graphId, start, dest, pathfind.WithObstacles(dynamicObstacles))
 			drawGraph(dGraph)
 		}
 
@@ -131,7 +131,7 @@ func main() {
 		if rl.IsMouseButtonPressed(rl.MouseLeftButton) {
 			dest = vec.Vector2{X: mouseWorldPos.X, Y: mouseWorldPos.Y}
 			t3 := time.Now()
-			searchPath := pathfinder.Path(graphId, start, dest, dynamicObstacles...)
+			searchPath := pathfinder.Path(graphId, start, dest, pathfind.WithObstacles(dynamicObstacles))
 			if len(searchPath) > 2 {
 				path = searchPath
 				pathTime = time.Since(t3).String()
@@ -143,7 +143,7 @@ func main() {
 		// recalc search path
 		if time.Since(lastSearchTime) > searchPathTimeInterval {
 			t3 := time.Now()
-			searchPath := pathfinder.Path(graphId, start, dest, dynamicObstacles...)
+			searchPath := pathfinder.Path(graphId, start, dest, pathfind.WithObstacles(dynamicObstacles))
 			if len(searchPath) > 2 {
 				path = searchPath
 				pathTime = time.Since(t3).String()

@@ -53,15 +53,15 @@ func (g *Grid) GetVisibility() graphs.Graph[vec.Vector2] {
 func (g *Grid) Cost(a, b vec.Vector2) float64 { return g.costFunc(a, b) }
 
 // AggregationGraph add start and dest points to existing pathfinder graph
-func (g *Grid) AggregationGraph(start, dest vec.Vector2, obstacles []obstacles.Obstacle) graphs.Graph[vec.Vector2] {
+func (g *Grid) AggregationGraph(start, dest vec.Vector2, navOpts *graphs.NavOpts) graphs.Graph[vec.Vector2] {
 	vis := g.visibilityGraph.Copy()
 
 	// add start & dest points to graph
 	g.addStartDestPointsToGraph(vis, start, dest)
 
-	if obstacles != nil {
+	if navOpts.Obstacles != nil {
 		// cut graph with obstacles
-		g.updateGraphWithObstacles(vis, obstacles)
+		g.updateGraphWithObstacles(vis, navOpts.Obstacles)
 	}
 
 	return vis
