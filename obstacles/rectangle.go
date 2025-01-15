@@ -21,6 +21,13 @@ func (o *Rectangle) GetPolygon() []vec.Vector2 {
 	return o.polygon
 }
 
+func (o *Rectangle) Move(pos vec.Vector2) {
+	o.center = o.center.Add(pos)
+	for i := 0; i < len(o.polygon); i++ {
+		o.polygon[i] = o.polygon[i].Add(pos)
+	}
+}
+
 func (o *Rectangle) IsPointAround(point vec.Vector2, edgeLen float32) bool {
 	distance := edgeLen * 2
 	halfWidth := o.width / 2

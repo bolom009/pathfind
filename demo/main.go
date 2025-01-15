@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"image/color"
 	"math"
 	"time"
 
@@ -14,6 +15,10 @@ import (
 	"github.com/bolom009/pathfind/vec"
 	rlgui "github.com/gen2brain/raylib-go/raygui"
 	rl "github.com/gen2brain/raylib-go/raylib"
+)
+
+const (
+	searchPathTimeInterval = time.Millisecond * 300
 )
 
 // Created with Polygon Constructor: https://alaricus.github.io/PolygonConstructor/
@@ -34,16 +39,23 @@ func main() {
 		pathfinder = pathfind.NewPathfinder[vec.Vector2]([]graphs.NavGraph[vec.Vector2]{
 			gridGraph,
 		})
-		dynamicObstacles = []graphs.Obstacle{
-			obstacles.GenerateCircle(vec.Vector2{X: 335, Y: 247}, 18, 15),
+		dynamicObstacles = []obstacles.Obstacle{
+			obstacles.GenerateCircle(vec.Vector2{X: 380, Y: 210}, 20, 15),
+			obstacles.GenerateCircle(vec.Vector2{X: 277, Y: 240}, 18, 15),
 			obstacles.GenerateCircle(vec.Vector2{X: 507, Y: 526}, 30, 30),
-			obstacles.GenerateCircle(vec.Vector2{X: 310, Y: 224}, 17, 15),
 			obstacles.GenerateRectangle(vec.Vector2{X: 403, Y: 45}, 500, 20),
 		}
-		camera        = rl.NewCamera2D(rl.NewVector2(0, 0), rl.NewVector2(-screen.X/2, -screen.Y/2), 0, 0.5)
-		graphId       = 0
-		isDrawGraph   = false
-		isDrawSquares = false
+		movingObstacles = []*MovingObstacle{
+			newMovingObstacle(dynamicObstacles[0], moveHorizontal, 20, 0.4),
+			newMovingObstacle(dynamicObstacles[1], moveVertical, 20, 0.1),
+			newMovingObstacle(dynamicObstacles[2], moveDiagonal, 30, 0.2),
+			newMovingObstacle(dynamicObstacles[3], moveHorizontal, 100, 0.2),
+		}
+		camera         = rl.NewCamera2D(rl.NewVector2(0, 0), rl.NewVector2(-screen.X/2, -screen.Y/2), 0, 0.5)
+		graphId        = 0
+		isDrawGraph    = false
+		isDrawSquares  = false
+		lastSearchTime = time.Now()
 
 		initTime string
 		pathTime string
@@ -61,10 +73,16 @@ func main() {
 	pathTime = time.Since(t2).String()
 
 	rl.SetTraceLogLevel(rl.LogError)
+	rl.SetTargetFPS(60)
 	rl.InitWindow(int32(screen.X), int32(screen.Y), "Test *A")
 	for {
 		if rl.WindowShouldClose() {
 			break
+		}
+
+		// moving dynamic obstacles
+		for _, mo := range movingObstacles {
+			mo.Move()
 		}
 
 		mouseWorldPos := rl.GetScreenToWorld2D(rl.GetMousePosition(), camera)
@@ -96,8 +114,9 @@ func main() {
 
 		rl.BeginMode2D(camera)
 		rl.ClearBackground(rl.White)
-		drawMap(polygon, holes, dynamicObstacles)
 
+		// drawing map
+		drawMap(polygon, holes, dynamicObstacles)
 		if isDrawSquares {
 			drawSquares(gridGraph.Squares())
 		}
@@ -106,15 +125,33 @@ func main() {
 			drawGraph(dGraph)
 		}
 
-		drawPath(path, rl.Green, camera.Zoom, true)
+		drawPath(start, dest, path, camera.Zoom, true)
 
+		t := time.Now()
 		if rl.IsMouseButtonPressed(rl.MouseLeftButton) {
+			dest = vec.Vector2{X: mouseWorldPos.X, Y: mouseWorldPos.Y}
 			t3 := time.Now()
-			searchPath := pathfinder.Path(graphId, start, vec.Vector2{X: mouseWorldPos.X, Y: mouseWorldPos.Y}, dynamicObstacles...)
+			searchPath := pathfinder.Path(graphId, start, dest, dynamicObstacles...)
 			if len(searchPath) > 2 {
 				path = searchPath
 				pathTime = time.Since(t3).String()
 			}
+
+			lastSearchTime = t
+		}
+
+		// recalc search path
+		if time.Since(lastSearchTime) > searchPathTimeInterval {
+			t3 := time.Now()
+			searchPath := pathfinder.Path(graphId, start, dest, dynamicObstacles...)
+			if len(searchPath) > 2 {
+				path = searchPath
+				pathTime = time.Since(t3).String()
+			} else {
+				path = nil
+			}
+
+			lastSearchTime = t
 		}
 
 		rl.EndMode2D()
@@ -136,7 +173,7 @@ func drawGraph(graph map[vec.Vector2][]vec.Vector2) {
 	}
 }
 
-func drawMap(polygon []vec.Vector2, holes [][]vec.Vector2, dynamicObstacles []graphs.Obstacle) {
+func drawMap(polygon []vec.Vector2, holes [][]vec.Vector2, dynamicObstacles []obstacles.Obstacle) {
 	polyLen := len(polygon)
 	for range polygon {
 		for i := range polyLen - 1 {
@@ -194,11 +231,14 @@ func drawSquares(squares []grid.Square) {
 	}
 }
 
-func drawPath(path []vec.Vector2, color rl.Color, zoom float32, skipNumbers ...bool) {
+func drawPath(start, dest vec.Vector2, path []vec.Vector2, zoom float32, skipNumbers ...bool) {
 	isSkipNumbers := false
 	if len(skipNumbers) > 0 {
 		isSkipNumbers = true
 	}
+
+	rl.DrawCircle(int32(start.X), int32(start.Y), 3/zoom, color.RGBA{R: 0x90, G: 0xee, B: 0x90, A: 0xff})
+	rl.DrawCircle(int32(dest.X), int32(dest.Y), 3/zoom, color.RGBA{R: 0xe7, G: 0x6f, B: 0x51, A: 0xFF})
 
 	if len(path) == 0 {
 		return
@@ -206,18 +246,13 @@ func drawPath(path []vec.Vector2, color rl.Color, zoom float32, skipNumbers ...b
 
 	for i := range len(path) - 1 {
 		p1, p2 := path[i], path[i+1]
-		rl.DrawLine(int32(p1.X), int32(p1.Y), int32(p2.X), int32(p2.Y), color)
+		rl.DrawLine(int32(p1.X), int32(p1.Y), int32(p2.X), int32(p2.Y), color.RGBA{R: 0x2a, G: 0x9d, B: 0x8f, A: 0xFF})
 
 		if !isSkipNumbers {
 			p := p1.Add(p2).Div(2)
 			rl.DrawText(fmt.Sprintf("%v", i+1), int32(p.X), int32(p.Y), 10, rl.Red)
 		}
 	}
-
-	last := len(path) - 1
-
-	rl.DrawCircle(int32(path[0].X), int32(path[0].Y), 2.5/zoom, color)
-	rl.DrawCircle(int32(path[last].X), int32(path[last].Y), 2.5/zoom, color)
 }
 
 func drawTopPanel(width int32, tPos rl.Vector2, isDrawGraph, isDrawSquares *bool, initTime, pathTime string, squareSize float64) {
@@ -232,4 +267,49 @@ func drawTopPanel(width int32, tPos rl.Vector2, isDrawGraph, isDrawSquares *bool
 	rlgui.Label(rl.NewRectangle(340, 10, 150, 15), "Path time: "+pathTime)
 	rl.DrawText(" | ", 440, 10, 15, rl.Gray)
 	rlgui.Label(rl.NewRectangle(460, 10, 150, 15), fmt.Sprintf("Square size: %v", squareSize))
+}
+
+type MoveType int
+
+const (
+	moveHorizontal MoveType = iota + 1
+	moveVertical
+	moveDiagonal
+)
+
+type MovingObstacle struct {
+	startPos      vec.Vector2
+	obstacle      obstacles.Obstacle
+	moveType      MoveType
+	maxDistance   float32
+	speed         float32
+	moveDirection int
+}
+
+func newMovingObstacle(obstacle obstacles.Obstacle, moveType MoveType, maxDistance, speed float32) *MovingObstacle {
+	return &MovingObstacle{
+		startPos:      obstacle.GetCenter(),
+		obstacle:      obstacle,
+		moveType:      moveType,
+		maxDistance:   maxDistance,
+		speed:         speed,
+		moveDirection: 1,
+	}
+}
+
+func (m *MovingObstacle) Move() {
+	movingObstacleCenter := m.obstacle.GetCenter()
+	if vec.Distance(movingObstacleCenter, m.startPos) > m.maxDistance {
+		m.moveDirection *= -1
+	}
+
+	switch m.moveType {
+	case moveHorizontal:
+		m.obstacle.Move(vec.Vector2{X: float32(m.moveDirection) * m.speed, Y: 0})
+	case moveVertical:
+		m.obstacle.Move(vec.Vector2{X: 0, Y: float32(m.moveDirection) * m.speed})
+	case moveDiagonal:
+		m.obstacle.Move(vec.Vector2{X: float32(m.moveDirection) * m.speed, Y: float32(m.moveDirection) * m.speed})
+	}
+
 }

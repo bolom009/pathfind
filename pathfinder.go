@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/bolom009/pathfind/graphs"
+	"github.com/bolom009/pathfind/obstacles"
 	"github.com/fzipp/astar"
 )
 
@@ -37,7 +38,7 @@ func (p *Pathfinder[Node]) Initialize(ctx context.Context) error {
 // Path finds the shortest path from start to dest
 // To search path could be added dynamic obstacles. All obstacles will cut current graph by their polygon.
 // The function returns nil if no path exists
-func (p *Pathfinder[Node]) Path(graphID int, start, dest Node, obstacles ...graphs.Obstacle) []Node {
+func (p *Pathfinder[Node]) Path(graphID int, start, dest Node, obstacles ...obstacles.Obstacle) []Node {
 	g := p.graphs[graphID]
 	if g == nil {
 		return nil
@@ -63,7 +64,7 @@ func (p *Pathfinder[Node]) GraphsNum() int {
 }
 
 // GraphWithSearchPath return generated graph with path nodes
-func (p *Pathfinder[Node]) GraphWithSearchPath(graphID int, start, dest Node, obstacles ...graphs.Obstacle) map[Node][]Node {
+func (p *Pathfinder[Node]) GraphWithSearchPath(graphID int, start, dest Node, obstacles ...obstacles.Obstacle) map[Node][]Node {
 	g := p.graphs[graphID]
 	if g == nil {
 		return nil

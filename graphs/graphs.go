@@ -2,22 +2,16 @@ package graphs
 
 import (
 	"context"
-	"github.com/bolom009/pathfind/vec"
 	"iter"
 	"slices"
-)
 
-// Obstacle is represented an interface for shape of obstacle
-type Obstacle interface {
-	GetCenter() vec.Vector2
-	GetPolygon() []vec.Vector2
-	IsPointAround(point vec.Vector2, edgeLen float32) bool
-}
+	"github.com/bolom009/pathfind/obstacles"
+)
 
 // NavGraph is represented an interface for graph types
 type NavGraph[Node comparable] interface {
 	Generate(ctx context.Context) error
-	AggregationGraph(Node, Node, []Obstacle) Graph[Node]
+	AggregationGraph(Node, Node, []obstacles.Obstacle) Graph[Node]
 	GetVisibility() Graph[Node]
 	ContainsPoint(Node) bool
 	Cost(Node, Node) float64

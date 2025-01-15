@@ -3,6 +3,7 @@ package grid
 import (
 	"context"
 	"github.com/bolom009/pathfind/graphs"
+	"github.com/bolom009/pathfind/obstacles"
 	"github.com/bolom009/pathfind/vec"
 	"github.com/fzipp/astar"
 	"math"
@@ -52,7 +53,7 @@ func (g *Grid) GetVisibility() graphs.Graph[vec.Vector2] {
 func (g *Grid) Cost(a, b vec.Vector2) float64 { return g.costFunc(a, b) }
 
 // AggregationGraph add start and dest points to existing pathfinder graph
-func (g *Grid) AggregationGraph(start, dest vec.Vector2, obstacles []graphs.Obstacle) graphs.Graph[vec.Vector2] {
+func (g *Grid) AggregationGraph(start, dest vec.Vector2, obstacles []obstacles.Obstacle) graphs.Graph[vec.Vector2] {
 	vis := g.visibilityGraph.Copy()
 
 	// add start & dest points to graph
@@ -123,7 +124,7 @@ func (g *Grid) addStartDestPointsToGraph(vis graphs.Graph[vec.Vector2], start ve
 	}
 }
 
-func (g *Grid) updateGraphWithObstacles(vis graphs.Graph[vec.Vector2], obstacles []graphs.Obstacle) {
+func (g *Grid) updateGraphWithObstacles(vis graphs.Graph[vec.Vector2], obstacles []obstacles.Obstacle) {
 	for _, square := range g.squares {
 		for _, obstacle := range obstacles {
 			if !obstacle.IsPointAround(square.Center, g.squareSize) {

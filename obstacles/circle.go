@@ -7,9 +7,10 @@ import (
 
 // Circle is represent obstacle in circle shape
 type Circle struct {
-	radius  float32
-	polygon []vec.Vector2
-	center  vec.Vector2
+	radius   float32
+	segments int
+	polygon  []vec.Vector2
+	center   vec.Vector2
 }
 
 func (o *Circle) GetCenter() vec.Vector2 {
@@ -18,6 +19,13 @@ func (o *Circle) GetCenter() vec.Vector2 {
 
 func (o *Circle) GetPolygon() []vec.Vector2 {
 	return o.polygon
+}
+
+func (o *Circle) Move(pos vec.Vector2) {
+	o.center = o.center.Add(pos)
+	for i := 0; i < len(o.polygon); i++ {
+		o.polygon[i] = o.polygon[i].Add(pos)
+	}
 }
 
 func (o *Circle) IsPointAround(point vec.Vector2, edgeLen float32) bool {
@@ -52,8 +60,9 @@ func GenerateCircle(center vec.Vector2, radius float32, segments int) *Circle {
 	}
 
 	return &Circle{
-		polygon: points,
-		radius:  radius,
-		center:  center,
+		polygon:  points,
+		center:   center,
+		radius:   radius,
+		segments: segments,
 	}
 }
