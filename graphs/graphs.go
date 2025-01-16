@@ -43,6 +43,10 @@ func (g Graph[Node]) DeleteNode(node Node) Graph[Node] {
 
 func (g Graph[Node]) DeleteNeighbour(node, neighbour Node) Graph[Node] {
 	if neighbours, ok := g[node]; ok {
+		if len(neighbours) == 0 {
+			return g
+		}
+
 		newSlice := make([]Node, 0, len(neighbours)-1)
 		for _, n := range neighbours {
 			if neighbour != n {

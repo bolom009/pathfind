@@ -29,7 +29,7 @@ func (o *Rectangle) Move(pos vec.Vector2) {
 }
 
 func (o *Rectangle) IsPointAround(point vec.Vector2, edgeLen float32) bool {
-	distance := edgeLen * 2
+	distance := edgeLen
 	halfWidth := o.width / 2
 	halfHeight := o.height / 2
 
