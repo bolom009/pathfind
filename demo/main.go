@@ -33,7 +33,7 @@ func main() {
 	var (
 		ctx        = context.Background()
 		start      = vec.Vector2{X: 31, Y: 571}
-		dest       = vec.Vector2{X: 644, Y: 403}
+		dest       = vec.Vector2{X: 670, Y: 430}
 		squareSize = 11.0
 		gridGraph  = grid.NewGrid(polygon, holes, float32(squareSize))
 		pathfinder = pathfind.NewPathfinder[vec.Vector2]([]graphs.NavGraph[vec.Vector2]{
