@@ -56,6 +56,8 @@ func main() {
 		isDrawGraph    = false
 		isDrawSquares  = false
 		lastSearchTime = time.Now()
+		edgesCount     = 0
+		vertexCount    = 0
 
 		initTime string
 		pathTime string
@@ -67,6 +69,12 @@ func main() {
 		panic(err)
 	}
 	initTime = time.Since(t).String()
+
+	visGraph := pathfinder.Graph(graphId)
+	for _, edges := range visGraph {
+		vertexCount++
+		edgesCount += len(edges)
+	}
 
 	t2 := time.Now()
 	path = pathfinder.Path(graphId, start, dest, pathfind.WithObstacles(dynamicObstacles))
@@ -129,11 +137,12 @@ func main() {
 
 		t := time.Now()
 		if rl.IsMouseButtonPressed(rl.MouseLeftButton) {
-			dest = vec.Vector2{X: mouseWorldPos.X, Y: mouseWorldPos.Y}
+			pp := vec.Vector2{X: mouseWorldPos.X, Y: mouseWorldPos.Y}
 			t3 := time.Now()
-			searchPath := pathfinder.Path(graphId, start, dest, pathfind.WithObstacles(dynamicObstacles))
+			searchPath := pathfinder.Path(graphId, start, pp, pathfind.WithObstacles(dynamicObstacles))
 			if len(searchPath) > 2 {
 				path = searchPath
+				dest = pp
 				pathTime = time.Since(t3).String()
 			}
 
@@ -156,8 +165,9 @@ func main() {
 
 		rl.EndMode2D()
 
-		drawTopPanel(int32(screen.X), rl.Vector2{}, &isDrawGraph, &isDrawSquares, initTime, pathTime, squareSize)
-		rl.SetWindowTitle(fmt.Sprintf("Test *A (%v, %v)", mouseWorldPos.X, mouseWorldPos.Y))
+		drawTopPanel(int32(screen.X), rl.Vector2{}, &isDrawGraph, &isDrawSquares, initTime,
+			pathTime, squareSize, vertexCount, edgesCount)
+		rl.SetWindowTitle(fmt.Sprintf("Test A* (%v, %v)", int(mouseWorldPos.X), int(mouseWorldPos.Y)))
 
 		rl.EndDrawing()
 	}
@@ -255,7 +265,8 @@ func drawPath(start, dest vec.Vector2, path []vec.Vector2, zoom float32, skipNum
 	}
 }
 
-func drawTopPanel(width int32, tPos rl.Vector2, isDrawGraph, isDrawSquares *bool, initTime, pathTime string, squareSize float64) {
+func drawTopPanel(width int32, tPos rl.Vector2, isDrawGraph, isDrawSquares *bool, initTime,
+	pathTime string, squareSize float64, vertexCount, edgesCount int) {
 	rl.DrawRectangle(int32(tPos.X), int32(tPos.Y), width, 30, rl.NewColor(127, 106, 79, 100))
 
 	*isDrawGraph = rlgui.CheckBox(rl.NewRectangle(15, 10, 15, 15), "draw graph", *isDrawGraph)
@@ -267,6 +278,8 @@ func drawTopPanel(width int32, tPos rl.Vector2, isDrawGraph, isDrawSquares *bool
 	rlgui.Label(rl.NewRectangle(340, 10, 150, 15), "Path time: "+pathTime)
 	rl.DrawText(" | ", 440, 10, 15, rl.Gray)
 	rlgui.Label(rl.NewRectangle(460, 10, 150, 15), fmt.Sprintf("Square size: %v", squareSize))
+	rl.DrawText(" | ", 540, 10, 15, rl.Gray)
+	rlgui.Label(rl.NewRectangle(560, 10, 180, 15), fmt.Sprintf("Graph (vertex: %v, edges: %v)", vertexCount, edgesCount))
 }
 
 type MoveType int

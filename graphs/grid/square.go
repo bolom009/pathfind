@@ -4,6 +4,11 @@ import (
 	"github.com/bolom009/pathfind/vec"
 )
 
+// Edge represent square edge
+type Edge struct {
+	A, B vec.Vector2
+}
+
 // Square represent square with four points, also include info about each point if it's inside polygon
 type Square struct {
 	A, B, C, D, Center vec.Vector2
@@ -21,9 +26,8 @@ func (s *Square) Edges() []Edge {
 	}
 }
 
-// Edge represent square edge
-type Edge struct {
-	A, B vec.Vector2
+func (s *Square) isInside() bool {
+	return s.isA && s.isB && s.isC && s.isD
 }
 
 // isPointInsideSquare checks if point inside square

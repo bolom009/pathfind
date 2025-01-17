@@ -88,38 +88,58 @@ func (g *Grid) addStartDestPointsToGraph(vis graphs.Graph[vec.Vector2], start ve
 			isD = square.isD
 		)
 
-		if square.isPointInsideSquare(start) {
-			g.addPairs(vis, start, []gridPair{{a, isA}, {b, isB}, {c, isC}, {d, isD}})
+		// is square inside polygon
+		if !square.isInside() {
+			continue
+		}
 
-			if isA && g.isLineSegmentInsidePolygonOrHoles(a, start) {
-				vis.Link(a, start)
+		if square.isPointInsideSquare(start) {
+			// TODO ADD edge to closest vertex
+			if !g.isLineSegmentInsidePolygonOrHoles(a, start) {
+				continue
 			}
-			if isB && g.isLineSegmentInsidePolygonOrHoles(b, start) {
-				vis.Link(b, start)
+			vis.Link(a, start)
+
+			if !g.isLineSegmentInsidePolygonOrHoles(b, start) {
+				continue
 			}
-			if isC && g.isLineSegmentInsidePolygonOrHoles(c, start) {
-				vis.Link(c, start)
+			vis.Link(b, start)
+
+			if !g.isLineSegmentInsidePolygonOrHoles(c, start) {
+				continue
 			}
-			if isD && g.isLineSegmentInsidePolygonOrHoles(d, start) {
-				vis.Link(d, start)
+			vis.Link(c, start)
+
+			if !g.isLineSegmentInsidePolygonOrHoles(d, start) {
+				continue
 			}
+			vis.Link(d, start)
+
+			g.addPairs(vis, start, []gridPair{{a, isA}, {b, isB}, {c, isC}, {d, isD}})
 		}
 
 		if square.isPointInsideSquare(dest) {
-			g.addPairs(vis, dest, []gridPair{{a, isA}, {b, isB}, {c, isC}, {d, isD}})
+			// TODO ADD edge to closest vertex
+			if !g.isLineSegmentInsidePolygonOrHoles(a, dest) {
+				continue
+			}
+			vis.Link(a, dest)
 
-			if isA && g.isLineSegmentInsidePolygonOrHoles(a, dest) {
-				vis.Link(a, dest)
+			if !g.isLineSegmentInsidePolygonOrHoles(b, dest) {
+				continue
 			}
-			if isB && g.isLineSegmentInsidePolygonOrHoles(b, dest) {
-				vis.Link(b, dest)
+			vis.Link(b, dest)
+
+			if !g.isLineSegmentInsidePolygonOrHoles(c, dest) {
+				continue
 			}
-			if isC && g.isLineSegmentInsidePolygonOrHoles(c, dest) {
-				vis.Link(c, dest)
+			vis.Link(c, dest)
+
+			if !g.isLineSegmentInsidePolygonOrHoles(d, dest) {
+				continue
 			}
-			if isD && g.isLineSegmentInsidePolygonOrHoles(d, dest) {
-				vis.Link(d, dest)
-			}
+			vis.Link(d, dest)
+			g.addPairs(vis, dest, []gridPair{{a, isA}, {b, isB}, {c, isC}, {d, isD}})
 		}
 	}
 }
@@ -127,63 +147,60 @@ func (g *Grid) addStartDestPointsToGraph(vis graphs.Graph[vec.Vector2], start ve
 func (g *Grid) updateGraphWithObstacles(vis graphs.Graph[vec.Vector2], obstacles []obstacles.Obstacle) {
 	for _, square := range g.squares {
 		for _, obstacle := range obstacles {
-			if !obstacle.IsPointAround(square.Center, g.squareSize) {
-				continue
-			}
-
 			var (
 				a               = square.A
 				b               = square.B
 				c               = square.C
 				d               = square.D
-				isA             = square.isA
-				isB             = square.isB
-				isC             = square.isC
-				isD             = square.isD
 				obstaclePolygon = obstacle.GetPolygon()
 			)
 
+			// is square inside polygon
+			if !square.isInside() {
+				continue
+			}
+
+			// is squire center around or inside obstacle
+			if !obstacle.IsPointAround(square.Center, g.squareSize) {
+				continue
+			}
+
 			// check edges list
-			if isA {
-				for neighbour := range vis.Neighbours(a) {
-					if isLineSegmentInsidePolygon(obstaclePolygon, a, neighbour) {
-						vis.DeleteNeighbour(a, neighbour)
-					}
+			for neighbour := range vis.Neighbours(a) {
+				if isLineSegmentInsidePolygon(obstaclePolygon, a, neighbour) {
+					vis.DeleteNeighbour(a, neighbour)
 				}
 			}
-			if isB {
-				for neighbour := range vis.Neighbours(b) {
-					if isLineSegmentInsidePolygon(obstaclePolygon, b, neighbour) {
-						vis.DeleteNeighbour(b, neighbour)
-					}
+
+			for neighbour := range vis.Neighbours(b) {
+				if isLineSegmentInsidePolygon(obstaclePolygon, b, neighbour) {
+					vis.DeleteNeighbour(b, neighbour)
 				}
 			}
-			if isC {
-				for neighbour := range vis.Neighbours(c) {
-					if isLineSegmentInsidePolygon(obstaclePolygon, c, neighbour) {
-						vis.DeleteNeighbour(c, neighbour)
-					}
+
+			for neighbour := range vis.Neighbours(c) {
+				if isLineSegmentInsidePolygon(obstaclePolygon, c, neighbour) {
+					vis.DeleteNeighbour(c, neighbour)
 				}
 			}
-			if isD {
-				for neighbour := range vis.Neighbours(d) {
-					if isLineSegmentInsidePolygon(obstaclePolygon, d, neighbour) {
-						vis.DeleteNeighbour(d, neighbour)
-					}
+
+			for neighbour := range vis.Neighbours(d) {
+				if isLineSegmentInsidePolygon(obstaclePolygon, d, neighbour) {
+					vis.DeleteNeighbour(d, neighbour)
 				}
 			}
 
 			// check vertex list
-			if isA && pointInPolygon(a, obstaclePolygon) {
+			if pointInPolygon(a, obstaclePolygon) {
 				vis.DeleteNode(a)
 			}
-			if isB && pointInPolygon(b, obstaclePolygon) {
+			if pointInPolygon(b, obstaclePolygon) {
 				vis.DeleteNode(b)
 			}
-			if isC && pointInPolygon(c, obstaclePolygon) {
+			if pointInPolygon(c, obstaclePolygon) {
 				vis.DeleteNode(c)
 			}
-			if isD && pointInPolygon(d, obstaclePolygon) {
+			if pointInPolygon(d, obstaclePolygon) {
 				vis.DeleteNode(d)
 			}
 		}
@@ -219,11 +236,6 @@ func (g *Grid) generateGraph() graphs.Graph[vec.Vector2] {
 			vis.Link(b, d)
 			vis.Link(d, b)
 		}
-	}
-
-	c := 0
-	for _, p := range vis {
-		c += len(p)
 	}
 
 	return vis
