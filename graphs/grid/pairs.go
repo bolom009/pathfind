@@ -1,17 +1,17 @@
 package grid
 
 import (
+	"github.com/bolom009/geom"
 	"github.com/bolom009/pathfind/graphs"
-	"github.com/bolom009/pathfind/vec"
 )
 
 type gridPair struct {
-	point vec.Vector2
+	point geom.Vector2
 	is    bool
 }
 
-func (g *Grid) addPairs(vis graphs.Graph[vec.Vector2], dest vec.Vector2, pairs []gridPair) {
-	points := make([]vec.Vector2, 0)
+func (g *Grid) addPairs(vis graphs.Graph[geom.Vector2], dest geom.Vector2, pairs []gridPair) {
+	points := make([]geom.Vector2, 0)
 	for _, pair := range pairs {
 		if pair.is && g.isLineSegmentInsidePolygonOrHoles(dest, pair.point) {
 			points = append(points, pair.point)

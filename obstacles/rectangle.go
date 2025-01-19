@@ -1,7 +1,7 @@
 package obstacles
 
 import (
-	"github.com/bolom009/pathfind/vec"
+	"github.com/bolom009/geom"
 	"math"
 )
 
@@ -9,26 +9,26 @@ import (
 type Rectangle struct {
 	width   float32
 	height  float32
-	polygon []vec.Vector2
-	center  vec.Vector2
+	polygon []geom.Vector2
+	center  geom.Vector2
 }
 
-func (o *Rectangle) GetCenter() vec.Vector2 {
+func (o *Rectangle) GetCenter() geom.Vector2 {
 	return o.center
 }
 
-func (o *Rectangle) GetPolygon() []vec.Vector2 {
+func (o *Rectangle) GetPolygon() []geom.Vector2 {
 	return o.polygon
 }
 
-func (o *Rectangle) Move(pos vec.Vector2) {
+func (o *Rectangle) Move(pos geom.Vector2) {
 	o.center = o.center.Add(pos)
 	for i := 0; i < len(o.polygon); i++ {
 		o.polygon[i] = o.polygon[i].Add(pos)
 	}
 }
 
-func (o *Rectangle) IsPointAround(point vec.Vector2, edgeLen float32) bool {
+func (o *Rectangle) IsPointAround(point geom.Vector2, edgeLen float32) bool {
 	distance := edgeLen
 	halfWidth := o.width / 2
 	halfHeight := o.height / 2
@@ -55,7 +55,7 @@ func (o *Rectangle) IsPointAround(point vec.Vector2, edgeLen float32) bool {
 	return distanceToClosestPoint <= float64(distance)
 }
 
-func GenerateRectangle(center vec.Vector2, width, height float32) *Rectangle {
+func GenerateRectangle(center geom.Vector2, width, height float32) *Rectangle {
 	var (
 		halfWidth  = width / 2
 		halfHeight = height / 2
@@ -64,10 +64,10 @@ func GenerateRectangle(center vec.Vector2, width, height float32) *Rectangle {
 	return &Rectangle{
 		width:  width,
 		height: height,
-		polygon: []vec.Vector2{
-			{X: center.X - halfWidth, Y: center.Y - halfHeight}, // Bottom-left corner
-			{X: center.X + halfWidth, Y: center.Y - halfHeight}, // Bottom-right corner
-			{X: center.X + halfWidth, Y: center.Y + halfHeight}, // Top-right corner
+		polygon: []geom.Vector2{
+			{X: center.X - halfWidth, Y: center.Y - halfHeight},
+			{X: center.X + halfWidth, Y: center.Y - halfHeight},
+			{X: center.X + halfWidth, Y: center.Y + halfHeight},
 			{X: center.X - halfWidth, Y: center.Y + halfHeight},
 		},
 		center: center,

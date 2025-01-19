@@ -1,3 +1,5 @@
+github.com/bolom009/geom v1.0.0 h1:6IAeTf9KGlO+Tq58iTcQcvpgotQ2XlnBTufPULIt/F0=
+github.com/bolom009/geom v1.0.0/go.mod h1:Y2Nm5fIdxazEQnVGMZm+pxFrar84MxtKVPh6PosEAsU=
 github.com/ebitengine/purego v0.8.1 h1:sdRKd6plj7KYW33EH5As6YKfe8m9zbN9JMrOjNVF/BE=
 github.com/ebitengine/purego v0.8.1/go.mod h1:iIjxzd6CiRiOG0UyXP+V1+jWqUXVjPKLAI0mRfJZTmQ=
 github.com/fzipp/astar v0.3.0 h1:ONok5YsDmFAVpBvKBP30wU3YDNVU101VRWBTRCUsGqA=

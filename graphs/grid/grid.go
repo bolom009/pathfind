@@ -2,29 +2,31 @@ package grid
 
 import (
 	"context"
+	"github.com/bolom009/geom"
 	"github.com/bolom009/pathfind/graphs"
 	"github.com/bolom009/pathfind/obstacles"
-	"github.com/bolom009/pathfind/vec"
 	"github.com/fzipp/astar"
 	"math"
 )
 
 type Grid struct {
-	polygon         []vec.Vector2
-	holes           [][]vec.Vector2
+	polygon         []geom.Vector2
+	holes           [][]geom.Vector2
 	squares         []Square
-	visibilityGraph graphs.Graph[vec.Vector2]
+	visSquares      []Square
+	visibilityGraph graphs.Graph[geom.Vector2]
 	squareSize      float32
-	costFunc        astar.CostFunc[vec.Vector2]
+	costFunc        astar.CostFunc[geom.Vector2]
+	offset          geom.Vector2
 }
 
-func NewGrid(polygon []vec.Vector2, holes [][]vec.Vector2, squareSize float32, options ...option) *Grid {
+func NewGrid(polygon []geom.Vector2, holes [][]geom.Vector2, squareSize float32, options ...option) *Grid {
 	g := &Grid{
 		polygon:         polygon,
 		holes:           holes,
 		squareSize:      squareSize,
 		squares:         make([]Square, 0),
-		visibilityGraph: make(graphs.Graph[vec.Vector2]),
+		visibilityGraph: make(graphs.Graph[geom.Vector2]),
 		costFunc:        heuristicEvaluation,
 	}
 
@@ -36,25 +38,31 @@ func NewGrid(polygon []vec.Vector2, holes [][]vec.Vector2, squareSize float32, o
 }
 
 func (g *Grid) Generate(_ context.Context) error {
-	g.squares = g.generateSquares()
+	g.squares, g.visSquares = g.generateSquares()
 	g.visibilityGraph = g.generateGraph()
 
 	return nil
 }
 
-func (g *Grid) ContainsPoint(point vec.Vector2) bool {
+func (g *Grid) ContainsPoint(point geom.Vector2) bool {
 	return g.isInsidePolygonWithHoles(point)
 }
 
-func (g *Grid) GetVisibility() graphs.Graph[vec.Vector2] {
+func (g *Grid) GetVisibility() graphs.Graph[geom.Vector2] {
 	return g.visibilityGraph.Copy()
 }
 
-func (g *Grid) Cost(a, b vec.Vector2) float64 { return g.costFunc(a, b) }
+func (g *Grid) Cost(a, b geom.Vector2) float64 {
+	return g.costFunc(a, b)
+}
 
 // AggregationGraph add start and dest points to existing pathfinder graph
-func (g *Grid) AggregationGraph(start, dest vec.Vector2, navOpts *graphs.NavOpts) graphs.Graph[vec.Vector2] {
+func (g *Grid) AggregationGraph(start, dest geom.Vector2, navOpts *graphs.NavOpts) graphs.Graph[geom.Vector2] {
 	vis := g.visibilityGraph.Copy()
+
+	//for _, square := range g.visSquares {
+	//
+	//}
 
 	// add start & dest points to graph
 	g.addStartDestPointsToGraph(vis, start, dest)
@@ -75,77 +83,41 @@ func (g *Grid) Squares() []Square {
 	return cSquares
 }
 
-func (g *Grid) addStartDestPointsToGraph(vis graphs.Graph[vec.Vector2], start vec.Vector2, dest vec.Vector2) {
-	for _, square := range g.squares {
+// VisibleSquares return copied list of squares
+func (g *Grid) VisibleSquares() []Square {
+	cSquares := make([]Square, len(g.visSquares))
+	copy(cSquares, g.visSquares)
+
+	return cSquares
+}
+
+func (g *Grid) addStartDestPointsToGraph(vis graphs.Graph[geom.Vector2], start geom.Vector2, dest geom.Vector2) {
+	for _, square := range g.visSquares {
 		var (
-			a   = square.A
-			b   = square.B
-			c   = square.C
-			d   = square.D
-			isA = square.isA
-			isB = square.isB
-			isC = square.isC
-			isD = square.isD
+			a = square.A
+			b = square.B
+			c = square.C
+			d = square.D
 		)
 
-		// is square inside polygon
-		if !square.isInside() {
-			continue
-		}
-
 		if square.isPointInsideSquare(start) {
-			// TODO ADD edge to closest vertex
-			if !g.isLineSegmentInsidePolygonOrHoles(a, start) {
-				continue
-			}
-			vis.Link(a, start)
-
-			if !g.isLineSegmentInsidePolygonOrHoles(b, start) {
-				continue
-			}
-			vis.Link(b, start)
-
-			if !g.isLineSegmentInsidePolygonOrHoles(c, start) {
-				continue
-			}
-			vis.Link(c, start)
-
-			if !g.isLineSegmentInsidePolygonOrHoles(d, start) {
-				continue
-			}
-			vis.Link(d, start)
-
-			g.addPairs(vis, start, []gridPair{{a, isA}, {b, isB}, {c, isC}, {d, isD}})
+			vis.LinkBoth(a, start)
+			vis.LinkBoth(b, start)
+			vis.LinkBoth(c, start)
+			vis.LinkBoth(d, start)
 		}
 
 		if square.isPointInsideSquare(dest) {
-			// TODO ADD edge to closest vertex
-			if !g.isLineSegmentInsidePolygonOrHoles(a, dest) {
-				continue
-			}
-			vis.Link(a, dest)
-
-			if !g.isLineSegmentInsidePolygonOrHoles(b, dest) {
-				continue
-			}
-			vis.Link(b, dest)
-
-			if !g.isLineSegmentInsidePolygonOrHoles(c, dest) {
-				continue
-			}
-			vis.Link(c, dest)
-
-			if !g.isLineSegmentInsidePolygonOrHoles(d, dest) {
-				continue
-			}
-			vis.Link(d, dest)
-			g.addPairs(vis, dest, []gridPair{{a, isA}, {b, isB}, {c, isC}, {d, isD}})
+			vis.LinkBoth(a, dest)
+			vis.LinkBoth(b, dest)
+			vis.LinkBoth(c, dest)
+			vis.LinkBoth(d, dest)
 		}
 	}
 }
 
-func (g *Grid) updateGraphWithObstacles(vis graphs.Graph[vec.Vector2], obstacles []obstacles.Obstacle) {
-	for _, square := range g.squares {
+func (g *Grid) updateGraphWithObstacles(vis graphs.Graph[geom.Vector2], obstacles []obstacles.Obstacle) {
+	for _, square := range g.visSquares {
 		for _, obstacle := range obstacles {
 			var (
 				a               = square.A
@@ -154,11 +126,6 @@ func (g *Grid) updateGraphWithObstacles(vis graphs.Graph[vec.Vector2], obstacles
 				d               = square.D
 				obstaclePolygon = obstacle.GetPolygon()
 			)
-
-			// is square inside polygon
-			if !square.isInside() {
-				continue
-			}
 
 			// is squire center around or inside obstacle
 			if !obstacle.IsPointAround(square.Center, g.squareSize) {
@@ -208,34 +175,19 @@ func (g *Grid) updateGraphWithObstacles(vis graphs.Graph[vec.Vector2], obstacles
 }
 
 // generateGraph create visibility graph based on squares
-func (g *Grid) generateGraph() graphs.Graph[vec.Vector2] {
-	vis := make(graphs.Graph[vec.Vector2])
-	for _, square := range g.squares {
+func (g *Grid) generateGraph() graphs.Graph[geom.Vector2] {
+	vis := make(graphs.Graph[geom.Vector2])
+	for _, square := range g.visSquares {
 		var (
-			a, b, c, d         = square.A, square.B, square.C, square.D
-			isA, isB, isC, isD = square.isA, square.isB, square.isC, square.isD
+			a, b, c, d = square.A, square.B, square.C, square.D
 		)
 
-		if isA {
-			g.addPairs(vis, a, []gridPair{{b, isB}, {d, isD}})
-		}
-		if isB {
-			g.addPairs(vis, b, []gridPair{{a, isA}, {c, isC}})
-		}
-		if isC {
-			g.addPairs(vis, c, []gridPair{{b, isB}, {d, isD}})
-		}
-		if isD {
-			g.addPairs(vis, d, []gridPair{{a, isA}, {c, isC}})
-		}
-		if isA && isC && g.isLineSegmentInsidePolygonOrHoles(a, c) {
-			vis.Link(a, c)
-			vis.Link(c, a)
-		}
-		if isB && isD && g.isLineSegmentInsidePolygonOrHoles(b, d) {
-			vis.Link(b, d)
-			vis.Link(d, b)
-		}
+		vis.LinkBoth(a, b)
+		vis.LinkBoth(a, d)
+		vis.LinkBoth(c, b)
+		vis.LinkBoth(c, d)
+		vis.LinkBoth(a, c)
+		vis.LinkBoth(b, d)
 	}
 
 	return vis
@@ -243,7 +195,7 @@ func (g *Grid) generateGraph() graphs.Graph[vec.Vector2] {
 
 // generateSquares create list of squares based on polygon, holes and squareSize
 // each square has info about vertices and if each vertex inside polygon to calculate graph
-func (g *Grid) generateSquares() []Square {
+func (g *Grid) generateSquares() ([]Square, []Square) {
 	var (
 		squareSize = g.squareSize
 		polygon    = g.polygon
@@ -268,6 +220,7 @@ func (g *Grid) generateSquares() []Square {
 	}
 
 	squares := make([]Square, 0, int(squareSize*squareSize))
+	visSquares := make([]Square, 0, int(squareSize*squareSize))
 
 	// Iterate over the grid
 	for x := minX; x < maxX; x += squareSize {
@@ -275,11 +228,11 @@ func (g *Grid) generateSquares() []Square {
 			var (
 				isA, isB, isC, isD, isCenter bool
 
-				center = vec.Vector2{X: x + squareSize/2.0, Y: y + squareSize/2.0}
-				a      = vec.Vector2{X: x, Y: y}
-				b      = vec.Vector2{X: x + squareSize, Y: y}
-				c      = vec.Vector2{X: x + squareSize, Y: y + squareSize}
-				d      = vec.Vector2{X: x, Y: y + squareSize}
+				center = geom.Vector2{X: x + g.offset.X + squareSize/2.0, Y: y + g.offset.Y + squareSize/2.0}
+				a      = geom.Vector2{X: x + g.offset.X, Y: y + g.offset.Y}
+				b      = geom.Vector2{X: x + g.offset.X + squareSize, Y: y + g.offset.Y}
+				c      = geom.Vector2{X: x + g.offset.X + squareSize, Y: y + g.offset.Y + squareSize}
+				d      = geom.Vector2{X: x + g.offset.X, Y: y + g.offset.Y + squareSize}
 			)
 
 			if g.isInsidePolygonWithHoles(a) {
@@ -298,39 +251,36 @@ func (g *Grid) generateSquares() []Square {
 				isD = true
 			}
 
-			if !isA && !isB && !isC && !isD {
-				continue
-			}
-
 			if g.isInsidePolygonWithHoles(center) {
 				isCenter = true
 			}
 
-			if isA || isB || isC || isD || isCenter {
-				// The square’s corners
-				square := Square{
-					A:        a,
-					B:        b,
-					C:        c,
-					D:        d,
-					isA:      isA,
-					isB:      isB,
-					isC:      isC,
-					isD:      isD,
-					isCenter: isCenter,
-					Center:   center,
-				}
+			// The square’s corners
+			square := Square{
+				A:        a,
+				B:        b,
+				C:        c,
+				D:        d,
+				Center:   center,
+				isA:      isA,
+				isB:      isB,
+				isC:      isC,
+				isD:      isD,
+				isCenter: isCenter,
+			}
 
-				squares = append(squares, square)
+			squares = append(squares, square)
+			if square.isInside() {
+				visSquares = append(visSquares, square)
 			}
 		}
 	}
 
-	return squares
+	return squares, visSquares
 }
 
 // pointInPolygon checks if a point p is inside a polygon using the ray casting method.
-func pointInPolygon(p vec.Vector2, poly []vec.Vector2) bool {
+func pointInPolygon(p geom.Vector2, poly []geom.Vector2) bool {
 	inside := false
 	n := len(poly)
 	for i := 0; i < n; i++ {
@@ -351,7 +301,7 @@ func pointInPolygon(p vec.Vector2, poly []vec.Vector2) bool {
 }
 
 // isInsidePolygonWithHoles checks if p is inside the outer polygon but not inside any holes
-func (g *Grid) isInsidePolygonWithHoles(point vec.Vector2) bool {
+func (g *Grid) isInsidePolygonWithHoles(point geom.Vector2) bool {
 	if !pointInPolygon(point, g.polygon) {
 		return false
 	}
@@ -364,7 +314,7 @@ func (g *Grid) isInsidePolygonWithHoles(point vec.Vector2) bool {
 }
 
 // isLineSegmentInsidePolygonOrHoles function to check if a line segment is inside a polygon or holes
-func (g *Grid) isLineSegmentInsidePolygonOrHoles(lineStart, lineEnd vec.Vector2) bool {
+func (g *Grid) isLineSegmentInsidePolygonOrHoles(lineStart, lineEnd geom.Vector2) bool {
 	// Check if the line segment intersects any of the polygon edges
 	if isLineSegmentInsidePolygon(g.polygon, lineStart, lineEnd) {
 		return false
@@ -382,7 +332,7 @@ func (g *Grid) isLineSegmentInsidePolygonOrHoles(lineStart, lineEnd vec.Vector2)
 }
 
 // isLineSegmentInsidePolygon function to check if a line segment is inside a polygon
-func isLineSegmentInsidePolygon(polygon []vec.Vector2, lineStart, lineEnd vec.Vector2) bool {
+func isLineSegmentInsidePolygon(polygon []geom.Vector2, lineStart, lineEnd geom.Vector2) bool {
 	n := len(polygon)
 	for i := 0; i < n; i++ {
 		p1 := polygon[i]
@@ -396,7 +346,7 @@ func isLineSegmentInsidePolygon(polygon []vec.Vector2, lineStart, lineEnd vec.Ve
 }
 
 // Function to check if two lines intersect
-func doLinesIntersect(p1, p2, q1, q2 vec.Vector2) bool {
+func doLinesIntersect(p1, p2, q1, q2 geom.Vector2) bool {
 	// Convert points to segments
 	// Calculate the orientation
 	o1 := orientation(p1, p2, q1)
@@ -426,7 +376,7 @@ func doLinesIntersect(p1, p2, q1, q2 vec.Vector2) bool {
 }
 
 // orientation helper function for intersection calculations
-func orientation(p, q, r vec.Vector2) int {
+func orientation(p, q, r geom.Vector2) int {
 	val := (q.Y-r.Y)*(p.X-q.X) - (q.X-r.X)*(p.Y-q.Y)
 	if val == 0 {
 		return 0 // Collinear
@@ -439,7 +389,7 @@ func orientation(p, q, r vec.Vector2) int {
 }
 
 // onSegment helper function for segment calculations
-func onSegment(p, q, r vec.Vector2) bool {
+func onSegment(p, q, r geom.Vector2) bool {
 	var (
 		pX, pY = float64(p.X), float64(p.Y)
 		qX, qY = float64(q.X), float64(q.Y)
@@ -449,7 +399,7 @@ func onSegment(p, q, r vec.Vector2) bool {
 	return qX <= math.Max(pX, rX) && qX >= math.Min(pX, rX) && qY <= math.Max(pY, rY) && qY >= math.Min(pY, rY)
 }
 
-func heuristicEvaluation(a, b vec.Vector2) float64 {
+func heuristicEvaluation(a, b geom.Vector2) float64 {
 	c := a.Sub(b)
 	return math.Sqrt(float64(c.X*c.X + c.Y*c.Y))
 }

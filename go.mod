@@ -1,8 +1,9 @@
 module github.com/bolom009/pathfind
 
-go 1.23.1
+go 1.23.4
 
 require (
+	github.com/bolom009/geom v1.0.0
 	github.com/fzipp/astar v0.3.0
 	github.com/gen2brain/raylib-go/raygui v0.0.0-20241217185605-453bad276990
 	github.com/gen2brain/raylib-go/raylib v0.0.0-20241217185605-453bad276990

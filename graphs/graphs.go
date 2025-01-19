@@ -33,6 +33,14 @@ func (g Graph[Node]) Link(a, b Node) Graph[Node] {
 	return g
 }
 
+// LinkBoth creates a both directed edge from node a to node b and back
+func (g Graph[Node]) LinkBoth(a, b Node) Graph[Node] {
+	g[a] = append(g[a], b)
+	g[b] = append(g[b], a)
+	return g
+}
+
+// DeleteNode delete graph vertex if exist
 func (g Graph[Node]) DeleteNode(node Node) Graph[Node] {
 	if _, ok := g[node]; ok {
 		delete(g, node)
@@ -41,6 +49,7 @@ func (g Graph[Node]) DeleteNode(node Node) Graph[Node] {
 	return g
 }
 
+// DeleteNeighbour delete vertex edge if exist
 func (g Graph[Node]) DeleteNeighbour(node, neighbour Node) Graph[Node] {
 	if neighbours, ok := g[node]; ok {
 		if len(neighbours) == 0 {

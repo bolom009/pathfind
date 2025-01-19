@@ -1,14 +1,20 @@
 package grid
 
 import (
-	"github.com/bolom009/pathfind/vec"
+	"github.com/bolom009/geom"
 	"github.com/fzipp/astar"
 )
 
-type option func(p *Grid)
+type option func(g *Grid)
 
-func WithCostFunc(costFunc astar.CostFunc[vec.Vector2]) option {
-	return func(p *Grid) {
-		p.costFunc = costFunc
+func WithCostFunc(costFunc astar.CostFunc[geom.Vector2]) option {
+	return func(g *Grid) {
+		g.costFunc = costFunc
+	}
+}
+
+func WithOffset(offset geom.Vector2) option {
+	return func(g *Grid) {
+		g.offset = offset
 	}
 }
