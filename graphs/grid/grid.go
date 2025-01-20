@@ -51,9 +51,11 @@ func (g *Grid) ContainsPoint(point geom.Vector2) bool {
 func (g *Grid) GetVisibility(navOpts *graphs.NavOpts) graphs.Graph[geom.Vector2] {
 	vis := g.visibilityGraph.Copy()
 
-	if navOpts.Obstacles != nil {
-		// cut graph with obstacles
-		g.updateGraphWithObstacles(vis, navOpts.Obstacles)
+	if navOpts != nil {
+		if navOpts.Obstacles != nil {
+			// cut graph with obstacles
+			g.updateGraphWithObstacles(vis, navOpts.Obstacles)
+		}
 	}
 
 	return vis
@@ -70,9 +72,11 @@ func (g *Grid) AggregationGraph(start, dest geom.Vector2, navOpts *graphs.NavOpt
 	// add start & dest points to graph
 	g.addStartDestPointsToGraph(vis, start, dest)
 
-	if navOpts.Obstacles != nil {
-		// cut graph with obstacles
-		g.updateGraphWithObstacles(vis, navOpts.Obstacles)
+	if navOpts != nil {
+		if navOpts.Obstacles != nil {
+			// cut graph with obstacles
+			g.updateGraphWithObstacles(vis, navOpts.Obstacles)
+		}
 	}
 
 	return vis
