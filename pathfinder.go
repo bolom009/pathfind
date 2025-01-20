@@ -54,13 +54,18 @@ func (p *Pathfinder[Node]) Path(graphID int, start, dest Node, opts ...PathOptio
 }
 
 // Graph return generated graph based on square list
-func (p *Pathfinder[Node]) Graph(graphID int) map[Node][]Node {
+func (p *Pathfinder[Node]) Graph(graphID int, opts ...PathOption) map[Node][]Node {
 	g := p.graphs[graphID]
 	if g == nil {
 		return nil
 	}
 
-	return g.GetVisibility()
+	navOpts := &graphs.NavOpts{}
+	for _, opt := range opts {
+		opt(navOpts)
+	}
+
+	return g.GetVisibility(navOpts)
 }
 
 func (p *Pathfinder[Node]) GraphsNum() int {

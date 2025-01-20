@@ -37,7 +37,7 @@ func main() {
 		dest               = geom.Vector2{X: 240, Y: 600}
 		squareSize float32 = 16.55
 		gridOffset         = geom.Vector2{X: 0.0, Y: 0.0}
-		gridGraph          = grid.NewGrid(polygon, holes, float32(squareSize), grid.WithOffset(gridOffset))
+		gridGraph          = grid.NewGrid(polygon, holes, squareSize, grid.WithOffset(gridOffset))
 		pathfinder         = pathfind.NewPathfinder[geom.Vector2]([]graphs.NavGraph[geom.Vector2]{
 			gridGraph,
 		})

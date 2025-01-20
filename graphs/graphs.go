@@ -19,7 +19,7 @@ type NavOpts struct {
 type NavGraph[Node comparable] interface {
 	Generate(ctx context.Context) error
 	AggregationGraph(Node, Node, *NavOpts) Graph[Node]
-	GetVisibility() Graph[Node]
+	GetVisibility(opts *NavOpts) Graph[Node]
 	ContainsPoint(Node) bool
 	Cost(Node, Node) float64
 }

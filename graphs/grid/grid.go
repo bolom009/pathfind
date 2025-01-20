@@ -48,8 +48,15 @@ func (g *Grid) ContainsPoint(point geom.Vector2) bool {
 	return g.isInsidePolygonWithHoles(point)
 }
 
-func (g *Grid) GetVisibility() graphs.Graph[geom.Vector2] {
-	return g.visibilityGraph.Copy()
+func (g *Grid) GetVisibility(navOpts *graphs.NavOpts) graphs.Graph[geom.Vector2] {
+	vis := g.visibilityGraph.Copy()
+
+	if navOpts.Obstacles != nil {
+		// cut graph with obstacles
+		g.updateGraphWithObstacles(vis, navOpts.Obstacles)
+	}
+
+	return vis
 }
 
 func (g *Grid) Cost(a, b geom.Vector2) float64 {
@@ -59,10 +66,6 @@ func (g *Grid) Cost(a, b geom.Vector2) float64 {
 // AggregationGraph add start and dest points to existing pathfinder graph
 func (g *Grid) AggregationGraph(start, dest geom.Vector2, navOpts *graphs.NavOpts) graphs.Graph[geom.Vector2] {
 	vis := g.visibilityGraph.Copy()
-
-	//for _, square := range g.visSquares {
-	//
-	//}
 
 	// add start & dest points to graph
 	g.addStartDestPointsToGraph(vis, start, dest)
