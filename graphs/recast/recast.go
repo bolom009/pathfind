@@ -2,19 +2,17 @@ package recast
 
 import (
 	"context"
-	"fmt"
 	"github.com/bolom009/delaunay"
 	"github.com/bolom009/geom"
 	"github.com/bolom009/pathfind/graphs"
 	"github.com/fzipp/astar"
 	"math"
-	"time"
 )
 
 type Recast struct {
 	polygon         []geom.Vector2
 	holes           [][]geom.Vector2
-	triangles       []*Triangle
+	triangles       []Triangle
 	costFunc        astar.CostFunc[geom.Vector2]
 	visibilityGraph graphs.Graph[geom.Vector2]
 }
@@ -23,7 +21,7 @@ func NewRecast(polygon []geom.Vector2, holes [][]geom.Vector2, options ...option
 	r := &Recast{
 		polygon:         polygon,
 		holes:           holes,
-		triangles:       make([]*Triangle, 0),
+		triangles:       make([]Triangle, 0),
 		visibilityGraph: make(graphs.Graph[geom.Vector2]),
 		costFunc:        heuristicEvaluation,
 	}
@@ -62,32 +60,27 @@ func (r *Recast) Generate(ctx context.Context) error {
 func (r *Recast) AggregationGraph(start, dest geom.Vector2, _ *graphs.NavOpts) graphs.Graph[geom.Vector2] {
 	vis := r.visibilityGraph.Copy()
 
-	t0 := time.Now()
 	for _, triangle := range r.triangles {
-		t := *triangle
-		p0 := t[0]
-		p1 := t[1]
-		p2 := t[2]
+		p0 := triangle[0]
+		p1 := triangle[1]
+		p2 := triangle[2]
 
-		if triangle.pointInsideTriangle(start) {
+		if pointInsideTriangle(p0, p1, p2, start) {
 			vis.LinkBoth(start, p0)
 			vis.LinkBoth(start, p1)
 			vis.LinkBoth(start, p2)
 		}
 
-		if triangle.pointInsideTriangle(dest) {
+		if pointInsideTriangle(p0, p1, p2, dest) {
 			vis.LinkBoth(p0, dest)
 			vis.LinkBoth(p1, dest)
 			vis.LinkBoth(p2, dest)
 		}
 	}
-	fmt.Println("CALC1", time.Since(t0).String())
 
-	t1 := time.Now()
 	if isLineSegmentInsidePolygonOrHoles(r.polygon, r.holes, start, dest) {
 		vis.LinkBoth(start, dest)
 	}
-	fmt.Println("CALC2", time.Since(t1).String())
 
 	return vis
 }
@@ -107,9 +100,9 @@ func (r *Recast) Cost(a geom.Vector2, b geom.Vector2) float64 {
 func (r *Recast) generateGraph() graphs.Graph[geom.Vector2] {
 	vis := make(graphs.Graph[geom.Vector2])
 	for _, triangle := range r.triangles {
-		p0 := (*triangle)[0]
-		p1 := (*triangle)[1]
-		p2 := (*triangle)[2]
+		p0 := triangle[0]
+		p1 := triangle[1]
+		p2 := triangle[2]
 
 		vis.LinkBoth(p0, p1)
 		vis.LinkBoth(p0, p2)

@@ -78,11 +78,7 @@ func main() {
 
 		// drawing map
 		drawMap(polygon, holes)
-
-		//if i == 0 {
-		//	drawGraph(pathfinder.GraphWithSearchPath(graphId, start, dest))
-		//}
-
+		drawGraph(pathfinder.GraphWithSearchPath(graphId, start, dest))
 		drawPath(start, dest, path, camera.Zoom, true)
 
 		rl.EndMode2D()
