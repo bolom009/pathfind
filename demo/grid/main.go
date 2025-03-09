@@ -42,16 +42,16 @@ func main() {
 			gridGraph,
 		})
 		dynamicObstacles = []obstacles.Obstacle{
-			obstacles.GenerateCircle(geom.Vector2{X: 240, Y: 380}, 20, 15),
-			obstacles.GenerateCircle(geom.Vector2{X: 148, Y: 382}, 18, 15),
-			obstacles.GenerateCircle(geom.Vector2{X: 240, Y: 524}, 30, 30),
-			obstacles.GenerateRectangle(geom.Vector2{X: 403, Y: 145}, 500, 20),
+			//obstacles.GenerateCircle(geom.Vector2{X: 240, Y: 380}, 20, 15),
+			//obstacles.GenerateCircle(geom.Vector2{X: 148, Y: 382}, 18, 15),
+			//obstacles.GenerateCircle(geom.Vector2{X: 240, Y: 524}, 30, 30),
+			//obstacles.GenerateRectangle(geom.Vector2{X: 403, Y: 145}, 500, 20),
 		}
 		movingObstacles = []*MovingObstacle{
-			newMovingObstacle(dynamicObstacles[0], moveHorizontal, 200, 1.5),
-			newMovingObstacle(dynamicObstacles[1], moveVertical, 20, 0.1),
-			newMovingObstacle(dynamicObstacles[2], moveDiagonal, 40, 0.2),
-			newMovingObstacle(dynamicObstacles[3], moveHorizontal, 200, 0.2),
+			//newMovingObstacle(dynamicObstacles[0], moveHorizontal, 200, 1.5),
+			//newMovingObstacle(dynamicObstacles[1], moveVertical, 20, 0.1),
+			//newMovingObstacle(dynamicObstacles[2], moveDiagonal, 40, 0.2),
+			//newMovingObstacle(dynamicObstacles[3], moveHorizontal, 200, 0.2),
 		}
 		camera          = rl.NewCamera2D(rl.NewVector2(0, 0), rl.NewVector2(-screen.X/2, -screen.Y/2), 0, 0.5)
 		graphId         = 0

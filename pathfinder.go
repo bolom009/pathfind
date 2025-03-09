@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/bolom009/pathfind/graphs"
 	"github.com/fzipp/astar"
+	"time"
 )
 
 // Pathfinder represent struct to operate with pathfinding
@@ -48,9 +49,15 @@ func (p *Pathfinder[Node]) Path(graphID int, start, dest Node, opts ...PathOptio
 		opt(navOpts)
 	}
 
+	t0 := time.Now()
 	vis := g.AggregationGraph(start, dest, navOpts)
+	fmt.Println("t0", time.Since(t0).String())
 
-	return astar.FindPath[Node](vis, start, dest, g.Cost, g.Cost)
+	t1 := time.Now()
+	path := astar.FindPath[Node](vis, start, dest, g.Cost, g.Cost)
+	fmt.Println("t1", time.Since(t1).String())
+
+	return path
 }
 
 // Graph return generated graph based on square list
