@@ -8,7 +8,13 @@ import (
 type option func(r *Recast)
 
 func WithCostFunc(costFunc astar.CostFunc[geom.Vector2]) option {
-	return func(g *Recast) {
-		g.costFunc = costFunc
+	return func(r *Recast) {
+		r.costFunc = costFunc
+	}
+}
+
+func WithSearchOutOfArea(searchOutOfArea bool) option {
+	return func(r *Recast) {
+		r.searchOutOfArea = searchOutOfArea
 	}
 }

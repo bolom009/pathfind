@@ -4,6 +4,8 @@ github.com/bolom009/delaunay v1.0.0 h1:UmIdmjUDG6gP30OC/qNIxHXFlHdJztaNtr3/oU5pL
 github.com/bolom009/delaunay v1.0.0/go.mod h1:DPz4UjKa218LrCbPxN8eq86fxAbIHHhKKGLATMZ2DbQ=
 github.com/bolom009/geom v1.0.0 h1:6IAeTf9KGlO+Tq58iTcQcvpgotQ2XlnBTufPULIt/F0=
 github.com/bolom009/geom v1.0.0/go.mod h1:Y2Nm5fIdxazEQnVGMZm+pxFrar84MxtKVPh6PosEAsU=
+github.com/bolom009/geom v1.7.0 h1:fmGnSMM5vz1EmjNrrJZlIz6SMJgzYspBMgQAerlWwdA=
+github.com/bolom009/geom v1.7.0/go.mod h1:Y2Nm5fIdxazEQnVGMZm+pxFrar84MxtKVPh6PosEAsU=
 github.com/cjmxp/poly2tri.go v0.0.0-20161017182124-8921a269dd6a h1:v0qDhlXHQHjAWLnYFH4fxwZretLrT5gY03yKR0rEUHs=
 github.com/cjmxp/poly2tri.go v0.0.0-20161017182124-8921a269dd6a/go.mod h1:rTc41uZhHYiH/gtfd3bgHHTPmyEAeExfCqsiu9vqFos=
 github.com/ebitengine/purego v0.8.1 h1:sdRKd6plj7KYW33EH5As6YKfe8m9zbN9JMrOjNVF/BE=

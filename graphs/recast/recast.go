@@ -5,19 +5,22 @@ import (
 	"github.com/bolom009/delaunay"
 	"github.com/bolom009/geom"
 	"github.com/bolom009/pathfind/graphs"
+	"github.com/bolom009/pathfind/mesh"
 	"github.com/fzipp/astar"
 	"math"
 )
 
 type Recast struct {
-	polygon         []geom.Vector2
-	holes           [][]geom.Vector2
+	polygon         *mesh.Polygon
+	holes           []*mesh.Hole
 	triangles       []Triangle
-	costFunc        astar.CostFunc[geom.Vector2]
 	visibilityGraph graphs.Graph[geom.Vector2]
+	vertices        []geom.Vector2
+	costFunc        astar.CostFunc[geom.Vector2]
+	searchOutOfArea bool
 }
 
-func NewRecast(polygon []geom.Vector2, holes [][]geom.Vector2, options ...option) *Recast {
+func NewRecast(polygon *mesh.Polygon, holes []*mesh.Hole, options ...option) *Recast {
 	r := &Recast{
 		polygon:         polygon,
 		holes:           holes,
@@ -35,18 +38,19 @@ func NewRecast(polygon []geom.Vector2, holes [][]geom.Vector2, options ...option
 
 func (r *Recast) Generate(ctx context.Context) error {
 	pp := make([]*delaunay.Point, 0)
-	for _, p := range r.polygon {
+	for _, p := range r.polygon.Clipper() {
 		pp = append(pp, delaunay.NewPoint(p.X, p.Y))
 	}
 
 	hh := make([][]*delaunay.Point, 0)
-	for _, holePoints := range r.holes {
-		hole := make([]*delaunay.Point, len(holePoints))
-		for i, p := range holePoints {
-			hole[i] = delaunay.NewPoint(p.X, p.Y)
+	for _, hole := range r.holes {
+		points := hole.Clipper()
+		newHole := make([]*delaunay.Point, len(points))
+		for i, p := range points {
+			newHole[i] = delaunay.NewPoint(p.X, p.Y)
 		}
 
-		hh = append(hh, hole)
+		hh = append(hh, newHole)
 	}
 
 	d := delaunay.NewSweepContext(pp, hh)
@@ -54,12 +58,24 @@ func (r *Recast) Generate(ctx context.Context) error {
 	r.triangles = convertTriangles(d.Triangulate())
 	r.visibilityGraph = r.generateGraph()
 
+	r.vertices = make([]geom.Vector2, len(r.visibilityGraph))
+
+	i := 0
+	for v := range r.visibilityGraph {
+		r.vertices[i] = v
+		i++
+	}
+
 	return nil
 }
 
 func (r *Recast) AggregationGraph(start, dest geom.Vector2, _ *graphs.NavOpts) graphs.Graph[geom.Vector2] {
 	vis := r.visibilityGraph.Copy()
 
+	var (
+		startOk = false
+		destOk  = false
+	)
 	for _, triangle := range r.triangles {
 		p0 := triangle[0]
 		p1 := triangle[1]
@@ -69,20 +85,51 @@ func (r *Recast) AggregationGraph(start, dest geom.Vector2, _ *graphs.NavOpts) g
 			vis.LinkBoth(start, p0)
 			vis.LinkBoth(start, p1)
 			vis.LinkBoth(start, p2)
+			startOk = true
 		}
 
 		if pointInsideTriangle(p0, p1, p2, dest) {
 			vis.LinkBoth(p0, dest)
 			vis.LinkBoth(p1, dest)
 			vis.LinkBoth(p2, dest)
+			destOk = true
 		}
 	}
 
-	if isLineSegmentInsidePolygonOrHoles(r.polygon, r.holes, start, dest) {
+	if isLineSegmentInsidePolygonOrHoles(r.polygon.Points(), r.holes, start, dest) {
 		vis.LinkBoth(start, dest)
+		startOk = true
+		destOk = true
+	}
+
+	if r.searchOutOfArea {
+		if !startOk && r.isInsidePolygonWithHoles(dest) {
+			startPoint := r.GetClosestPoint(start)
+			vis.LinkBoth(startPoint, start)
+		}
+
+		if !destOk && r.isInsidePolygonWithHoles(dest) {
+			destPoint := r.GetClosestPoint(dest)
+			vis.LinkBoth(destPoint, dest)
+		}
 	}
 
 	return vis
+}
+
+func (r *Recast) GetClosestPoint(point geom.Vector2) geom.Vector2 {
+	closest := float32(math.MaxFloat32)
+	closestPoint := geom.Vector2{}
+	// TODO USE KD TREE instead of distance
+	for _, v := range r.vertices {
+		dist := geom.Distance(point, v)
+		if dist < closest {
+			closest = dist
+			closestPoint = v
+		}
+	}
+
+	return closestPoint
 }
 
 func (r *Recast) GetVisibility(_ *graphs.NavOpts) graphs.Graph[geom.Vector2] {
@@ -100,10 +147,13 @@ func (r *Recast) Cost(a geom.Vector2, b geom.Vector2) float64 {
 func (r *Recast) generateGraph() graphs.Graph[geom.Vector2] {
 	vis := make(graphs.Graph[geom.Vector2])
 	for _, triangle := range r.triangles {
-		p0 := triangle[0]
-		p1 := triangle[1]
-		p2 := triangle[2]
+		var (
+			p0 = triangle[0]
+			p1 = triangle[1]
+			p2 = triangle[2]
+		)
 
+		// link top vertices
 		vis.LinkBoth(p0, p1)
 		vis.LinkBoth(p0, p2)
 		vis.LinkBoth(p1, p2)
@@ -113,26 +163,31 @@ func (r *Recast) generateGraph() graphs.Graph[geom.Vector2] {
 }
 
 func (r *Recast) isInsidePolygonWithHoles(point geom.Vector2) bool {
-	if !pointInPolygon(point, r.polygon) {
+	if !pointInPolygon(point, r.polygon.Points()) {
 		return false
 	}
 	for _, hole := range r.holes {
-		if pointInPolygon(point, hole) {
+		if pointInPolygon(point, hole.Points()) {
 			return false
 		}
 	}
 	return true
 }
 
-func isLineSegmentInsidePolygonOrHoles(polygon []geom.Vector2, holes [][]geom.Vector2, lineStart, lineEnd geom.Vector2) bool {
+func (r *Recast) Triangles() []Triangle {
+	return r.triangles
+}
+
+func isLineSegmentInsidePolygonOrHoles(polygon []geom.Vector2, holes []*mesh.Hole, lineStart, lineEnd geom.Vector2) bool {
 	// Check if the line segment intersects any of the polygon edges
 	if isLineSegmentInsidePolygon(polygon, lineStart, lineEnd) {
 		return false
 	}
 
 	for _, hole := range holes {
-		for i := 0; i < len(hole)-1; i++ {
-			if doLinesIntersect(lineStart, lineEnd, hole[i], hole[i+1]) {
+		points := hole.Points()
+		for i := 0; i < len(points)-1; i++ {
+			if doLinesIntersect(lineStart, lineEnd, points[i], points[i+1]) {
 				return false // Intersects a hole
 			}
 		}

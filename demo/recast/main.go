@@ -3,12 +3,13 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/bolom009/clipper"
 	"github.com/bolom009/geom"
 	"github.com/bolom009/pathfind"
-	"github.com/bolom009/pathfind/demo/recast/polyjson"
+	"github.com/bolom009/pathfind/demo/utils"
 	"github.com/bolom009/pathfind/graphs"
 	"github.com/bolom009/pathfind/graphs/recast"
+	"github.com/bolom009/pathfind/mesh"
+	rlgui "github.com/gen2brain/raylib-go/raygui"
 	rl "github.com/gen2brain/raylib-go/raylib"
 	"image/color"
 	"math"
@@ -20,15 +21,14 @@ import (
 const floorPlan = `{"canvas":{"w":800,"h":600},"polygons":[[{"x":0,"y":0},{"x":120,"y":0},{"x":120,"y":340},{"x":180,"y":340},{"x":180,"y":-120},{"x":300,"y":-120},{"x":300,"y":340},{"x":360,"y":340},{"x":360,"y":0},{"x":480,"y":0},{"x":480,"y":420},{"x":300,"y":420},{"x":300,"y":540},{"x":340,"y":540},{"x":340,"y":720},{"x":140,"y":720},{"x":140,"y":540},{"x":180,"y":540},{"x":180,"y":420},{"x":0,"y":420}]]}`
 
 func main() {
-	polygon, holes, screen, err := polyjson.NewPolygonsFromJSON([]byte(floorPlan))
+	polygon, holes, screen, err := utils.NewPolygonsFromJSON([]byte(floorPlan))
 	if err != nil {
 		panic(err)
 	}
 
-	nPolygon := clipper.OffsetPolygon(polygon, 20.0)
-	nHoles := make([][]geom.Vector2, len(holes))
+	nHoles := make([]*mesh.Hole, len(holes))
 	for i, hole := range holes {
-		nHoles[i] = clipper.OffsetPolygon(hole, -5.0)
+		nHoles[i] = mesh.NewHole(hole, -5.0)
 	}
 
 	var (
@@ -36,18 +36,37 @@ func main() {
 		path        = make([]geom.Vector2, 0)
 		start       = geom.Vector2{X: 25, Y: 25}
 		dest        = geom.Vector2{X: 430, Y: 200}
-		recastGraph = recast.NewRecast(nPolygon, nHoles)
+		recastGraph = recast.NewRecast(mesh.NewPolygon(polygon, 35), nHoles, recast.WithSearchOutOfArea(true))
 		pathfinder  = pathfind.NewPathfinder[geom.Vector2]([]graphs.NavGraph[geom.Vector2]{
 			recastGraph,
 		})
-		graphId = 0
+		graphId        = 0
+		isDrawGraph    = true
+		edgesCount     = 0
+		vertexCount    = 0
+		trianglesCount = 0
+
+		initTime string
+		pathTime string
 	)
 
+	t := time.Now()
 	if err := pathfinder.Initialize(context.Background()); err != nil {
 		panic(err)
 	}
+	initTime = time.Since(t).String()
 
+	t = time.Now()
 	path = pathfinder.Path(graphId, start, dest)
+	pathTime = time.Since(t).String()
+
+	visGraph := pathfinder.Graph(graphId)
+	for _, edges := range visGraph {
+		vertexCount++
+		edgesCount += len(edges)
+	}
+
+	trianglesCount = len(recastGraph.Triangles())
 
 	rl.SetTraceLogLevel(rl.LogError)
 	rl.SetTargetFPS(60)
@@ -65,24 +84,38 @@ func main() {
 		rl.BeginMode2D(camera)
 		rl.ClearBackground(rl.White)
 
-		if rl.IsMouseButtonPressed(rl.MouseLeftButton) {
+		if !rl.IsKeyDown(rl.KeyLeftControl) && rl.IsMouseButtonPressed(rl.MouseLeftButton) {
 			dest = geom.Vector2{X: mouseWorldPos.X, Y: mouseWorldPos.Y}
 			t := time.Now()
 			searchPath := pathfinder.Path(graphId, start, dest)
 			if len(searchPath) >= 2 {
 				path = searchPath
 			}
-			fmt.Println("ttt", time.Since(t).String())
-			i = 0
+			pathTime = time.Since(t).String()
+			fmt.Println("ttt", pathTime)
+		}
+
+		if rl.IsKeyDown(rl.KeyLeftControl) && rl.IsMouseButtonPressed(rl.MouseLeftButton) {
+			start = geom.Vector2{X: mouseWorldPos.X, Y: mouseWorldPos.Y}
+			t := time.Now()
+			searchPath := pathfinder.Path(graphId, start, dest)
+			if len(searchPath) >= 2 {
+				path = searchPath
+			}
+			pathTime = time.Since(t).String()
+			fmt.Println("ttt", pathTime)
 		}
 
 		// drawing map
 		drawMap(polygon, holes)
-		drawGraph(pathfinder.GraphWithSearchPath(graphId, start, dest))
+		if isDrawGraph {
+			drawGraph(pathfinder.GraphWithSearchPath(graphId, start, dest))
+		}
 		drawPath(start, dest, path, camera.Zoom, true)
 
 		rl.EndMode2D()
 
+		drawTopPanel(int32(screen.X), rl.Vector2{}, &isDrawGraph, initTime, pathTime, trianglesCount, vertexCount, edgesCount)
 		rl.SetWindowTitle(fmt.Sprintf("Test A* (%v, %v)", int(mouseWorldPos.X), int(mouseWorldPos.Y)))
 
 		rl.EndDrawing()
@@ -170,20 +203,27 @@ func drawMap(polygon []geom.Vector2, holes [][]geom.Vector2) {
 	}
 }
 
-var i = 0
-
 func drawGraph(graph map[geom.Vector2][]geom.Vector2) {
-
-	eCount := 0
-	pCount := 0
 	for p, elems := range graph {
 		for _, elem := range elems {
 			rl.DrawLine(int32(p.X), int32(p.Y), int32(elem.X), int32(elem.Y), rl.NewColor(230, 41, 55, 30))
 		}
-		eCount += len(elems)
-		pCount++
 	}
+}
 
-	//fmt.Println(pCount, eCount)
-	i++
+func drawTopPanel(width int32, tPos rl.Vector2, isDrawGraph *bool, initTime,
+	pathTime string, trianglesCount, vertexCount, edgesCount int) {
+
+	rl.DrawRectangle(int32(tPos.X), int32(tPos.Y), width, 30, rl.NewColor(127, 106, 79, 100))
+
+	*isDrawGraph = rlgui.CheckBox(rl.NewRectangle(15, 10, 15, 15), "draw graph", *isDrawGraph)
+
+	rl.DrawText(" | ", 200, 10, 15, rl.Gray)
+	rlgui.Label(rl.NewRectangle(220, 10, 150, 15), "Init time: "+initTime)
+	rl.DrawText(" | ", 300, 10, 15, rl.Gray)
+	rlgui.Label(rl.NewRectangle(320, 10, 150, 15), "Path time: "+pathTime)
+	rl.DrawText(" | ", 420, 10, 15, rl.Gray)
+	rlgui.Label(rl.NewRectangle(440, 10, 200, 15), fmt.Sprintf("Triangles %v", trianglesCount))
+	rl.DrawText(" | ", 520, 10, 15, rl.Gray)
+	rlgui.Label(rl.NewRectangle(540, 10, 180, 15), fmt.Sprintf("Graph (%vx%v)", vertexCount, edgesCount))
 }

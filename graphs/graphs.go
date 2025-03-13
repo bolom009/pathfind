@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/bolom009/pathfind/obstacles"
 	"iter"
+	"maps"
 	"slices"
 )
 
@@ -34,9 +35,26 @@ func (g Graph[Node]) Link(a, b Node) Graph[Node] {
 }
 
 // LinkBoth creates a both directed edge from node a to node b and back
-func (g Graph[Node]) LinkBoth(a, b Node) Graph[Node] {
-	g[a] = append(g[a], b)
-	g[b] = append(g[b], a)
+func (g Graph[Node]) LinkBoth(a, b Node, l ...int32) Graph[Node] {
+	if len(l) > 0 {
+		if _, ok := g[a]; !ok {
+			g[a] = make([]Node, 0, l[0])
+			g[a] = append(g[a], b)
+		} else {
+			g[a] = append(g[a], b)
+		}
+
+		if _, ok := g[b]; !ok {
+			g[b] = make([]Node, 0, l[0])
+			g[b] = append(g[b], a)
+		} else {
+			g[b] = append(g[b], a)
+		}
+	} else {
+		g[a] = append(g[a], b)
+		g[b] = append(g[b], a)
+	}
+
 	return g
 }
 
@@ -71,14 +89,16 @@ func (g Graph[Node]) DeleteNeighbour(node, neighbour Node) Graph[Node] {
 
 // Copy return copy of graph
 func (g Graph[Node]) Copy() Graph[Node] {
-	cGraph := make(Graph[Node])
-	for k, v := range g {
-		cv := make([]Node, len(v))
-		copy(cv, v)
+	return maps.Clone(g)
 
-		cGraph[k] = cv
-	}
-	return cGraph
+	//cGraph := make(Graph[Node])
+	//for k, v := range g {
+	//	cv := make([]Node, len(v))
+	//	copy(cv, v)
+	//
+	//	cGraph[k] = cv
+	//}
+	//return cGraph
 }
 
 // Neighbours returns the neighbour nodes of node n in the graph.

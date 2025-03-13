@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/bolom009/geom"
-	"github.com/bolom009/pathfind/demo/grid/polyjson"
+	"github.com/bolom009/pathfind/demo/utils"
 	"image/color"
 	"math"
 	"time"
@@ -26,7 +26,7 @@ const (
 const floorPlan = `{"canvas":{"w":800,"h":600},"polygons":[[{"x":0,"y":0},{"x":120,"y":0},{"x":120,"y":340},{"x":180,"y":340},{"x":180,"y":-120},{"x":300,"y":-120},{"x":300,"y":340},{"x":360,"y":340},{"x":360,"y":0},{"x":480,"y":0},{"x":480,"y":420},{"x":300,"y":420},{"x":300,"y":540},{"x":340,"y":540},{"x":340,"y":720},{"x":140,"y":720},{"x":140,"y":540},{"x":180,"y":540},{"x":180,"y":420},{"x":0,"y":420}]]}`
 
 func main() {
-	polygon, holes, screen, err := polyjson.NewPolygonsFromJSON([]byte(floorPlan))
+	polygon, holes, screen, err := utils.NewPolygonsFromJSON([]byte(floorPlan))
 	if err != nil {
 		panic(err)
 	}
@@ -183,6 +183,7 @@ func main() {
 }
 
 func drawGraph(graph map[geom.Vector2][]geom.Vector2) {
+
 	for p, elems := range graph {
 		for _, elem := range elems {
 			rl.DrawLine(int32(p.X), int32(p.Y), int32(elem.X), int32(elem.Y), rl.NewColor(230, 41, 55, 30))

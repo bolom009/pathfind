@@ -1,4 +1,4 @@
-package polyjson
+package utils
 
 import (
 	"encoding/json"
