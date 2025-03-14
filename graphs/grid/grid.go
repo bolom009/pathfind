@@ -2,10 +2,10 @@ package grid
 
 import (
 	"context"
+	"github.com/bolom009/astar"
 	"github.com/bolom009/geom"
 	"github.com/bolom009/pathfind/graphs"
 	"github.com/bolom009/pathfind/obstacles"
-	"github.com/fzipp/astar"
 	"math"
 )
 
@@ -140,25 +140,25 @@ func (g *Grid) updateGraphWithObstacles(vis graphs.Graph[geom.Vector2], obstacle
 			}
 
 			// check edges list
-			for neighbour := range vis.Neighbours(a) {
+			for _, neighbour := range vis.Neighbours(a) {
 				if isLineSegmentInsidePolygon(obstaclePolygon, a, neighbour) {
 					vis.DeleteNeighbour(a, neighbour)
 				}
 			}
 
-			for neighbour := range vis.Neighbours(b) {
+			for _, neighbour := range vis.Neighbours(b) {
 				if isLineSegmentInsidePolygon(obstaclePolygon, b, neighbour) {
 					vis.DeleteNeighbour(b, neighbour)
 				}
 			}
 
-			for neighbour := range vis.Neighbours(c) {
+			for _, neighbour := range vis.Neighbours(c) {
 				if isLineSegmentInsidePolygon(obstaclePolygon, c, neighbour) {
 					vis.DeleteNeighbour(c, neighbour)
 				}
 			}
 
-			for neighbour := range vis.Neighbours(d) {
+			for _, neighbour := range vis.Neighbours(d) {
 				if isLineSegmentInsidePolygon(obstaclePolygon, d, neighbour) {
 					vis.DeleteNeighbour(d, neighbour)
 				}
@@ -406,7 +406,9 @@ func onSegment(p, q, r geom.Vector2) bool {
 	return qX <= math.Max(pX, rX) && qX >= math.Min(pX, rX) && qY <= math.Max(pY, rY) && qY >= math.Min(pY, rY)
 }
 
-func heuristicEvaluation(a, b geom.Vector2) float64 {
-	c := a.Sub(b)
-	return math.Sqrt(float64(c.X*c.X + c.Y*c.Y))
+func heuristicEvaluation(a, b geom.Vector2) float32 {
+	x := a.X - b.X
+	y := a.Y - b.Y
+
+	return float32(math.Sqrt(float64(x*x + y*y)))
 }
