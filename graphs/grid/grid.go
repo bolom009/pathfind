@@ -61,7 +61,7 @@ func (g *Grid) GetVisibility(navOpts *graphs.NavOpts) graphs.Graph[geom.Vector2]
 	return vis
 }
 
-func (g *Grid) Cost(a, b geom.Vector2) float64 {
+func (g *Grid) Cost(a, b geom.Vector2) float32 {
 	return g.costFunc(a, b)
 }
 

@@ -2,11 +2,11 @@ package recast
 
 import (
 	"context"
+	"github.com/bolom009/astar"
 	"github.com/bolom009/delaunay"
 	"github.com/bolom009/geom"
 	"github.com/bolom009/pathfind/graphs"
 	"github.com/bolom009/pathfind/mesh"
-	"github.com/fzipp/astar"
 	"math"
 )
 
@@ -17,6 +17,7 @@ type Recast struct {
 	visibilityGraph graphs.Graph[geom.Vector2]
 	vertices        []geom.Vector2
 	costFunc        astar.CostFunc[geom.Vector2]
+	kdTree          *KDTree
 	searchOutOfArea bool
 }
 
@@ -66,13 +67,22 @@ func (r *Recast) Generate(ctx context.Context) error {
 		i++
 	}
 
+	r.kdTree = BuildKDTree(r.vertices, 0)
+
 	return nil
 }
 
 func (r *Recast) AggregationGraph(start, dest geom.Vector2, _ *graphs.NavOpts) graphs.Graph[geom.Vector2] {
-	vis := r.visibilityGraph.Copy()
+	// if start and dest in same visibility we can return start-dest graph
+	if isLineSegmentInsidePolygonOrHoles(r.polygon.Points(), r.holes, start, dest) {
+		return graphs.Graph[geom.Vector2]{
+			start: []geom.Vector2{dest},
+			dest:  []geom.Vector2{start},
+		}
+	}
 
 	var (
+		vis     = r.visibilityGraph.Copy()
 		startOk = false
 		destOk  = false
 	)
@@ -86,6 +96,7 @@ func (r *Recast) AggregationGraph(start, dest geom.Vector2, _ *graphs.NavOpts) g
 			vis.LinkBoth(start, p1)
 			vis.LinkBoth(start, p2)
 			startOk = true
+			continue
 		}
 
 		if pointInsideTriangle(p0, p1, p2, dest) {
@@ -96,20 +107,14 @@ func (r *Recast) AggregationGraph(start, dest geom.Vector2, _ *graphs.NavOpts) g
 		}
 	}
 
-	if isLineSegmentInsidePolygonOrHoles(r.polygon.Points(), r.holes, start, dest) {
-		vis.LinkBoth(start, dest)
-		startOk = true
-		destOk = true
-	}
-
 	if r.searchOutOfArea {
-		if !startOk && r.isInsidePolygonWithHoles(dest) {
-			startPoint := r.GetClosestPoint(start)
+		if !startOk && r.isInsidePolygonWithHoles(start) {
+			startPoint, _ := r.kdTree.search(start)
 			vis.LinkBoth(startPoint, start)
 		}
 
 		if !destOk && r.isInsidePolygonWithHoles(dest) {
-			destPoint := r.GetClosestPoint(dest)
+			destPoint, _ := r.kdTree.search(dest)
 			vis.LinkBoth(destPoint, dest)
 		}
 	}
@@ -120,7 +125,6 @@ func (r *Recast) AggregationGraph(start, dest geom.Vector2, _ *graphs.NavOpts) g
 func (r *Recast) GetClosestPoint(point geom.Vector2) geom.Vector2 {
 	closest := float32(math.MaxFloat32)
 	closestPoint := geom.Vector2{}
-	// TODO USE KD TREE instead of distance
 	for _, v := range r.vertices {
 		dist := geom.Distance(point, v)
 		if dist < closest {
@@ -140,7 +144,7 @@ func (r *Recast) ContainsPoint(point geom.Vector2) bool {
 	return r.isInsidePolygonWithHoles(point)
 }
 
-func (r *Recast) Cost(a geom.Vector2, b geom.Vector2) float64 {
+func (r *Recast) Cost(a geom.Vector2, b geom.Vector2) float32 {
 	return r.costFunc(a, b)
 }
 
@@ -284,7 +288,9 @@ func onSegment(p, q, r geom.Vector2) bool {
 	return qX <= math.Max(pX, rX) && qX >= math.Min(pX, rX) && qY <= math.Max(pY, rY) && qY >= math.Min(pY, rY)
 }
 
-func heuristicEvaluation(a, b geom.Vector2) float64 {
-	c := a.Sub(b)
-	return math.Sqrt(float64(c.X*c.X + c.Y*c.Y))
+func heuristicEvaluation(a, b geom.Vector2) float32 {
+	x := a.X - b.X
+	y := a.Y - b.Y
+
+	return float32(math.Sqrt(float64(x*x + y*y)))
 }

@@ -1,8 +1,8 @@
 package recast
 
 import (
+	"github.com/bolom009/astar"
 	"github.com/bolom009/geom"
-	"github.com/fzipp/astar"
 )
 
 type option func(r *Recast)

@@ -9,7 +9,8 @@ import (
 
 const floorPlan = `{"canvas":{"w":800,"h":600},"polygons":[[{"x":0,"y":0},{"x":120,"y":0},{"x":120,"y":340},{"x":180,"y":340},{"x":180,"y":-120},{"x":300,"y":-120},{"x":300,"y":340},{"x":360,"y":340},{"x":360,"y":0},{"x":480,"y":0},{"x":480,"y":420},{"x":300,"y":420},{"x":300,"y":540},{"x":340,"y":540},{"x":340,"y":720},{"x":140,"y":720},{"x":140,"y":540},{"x":180,"y":540},{"x":180,"y":420},{"x":0,"y":420}]]}`
 
-// BenchmarkAggregationGraph-16             3419834               350.0 ns/op           376 B/op          6 allocs/op
+// BenchmarkAggregationGraph-16    	  823694	      1387 ns/op	    1384 B/op	       8 allocs/op
+// BenchmarkAggregationGraph-16    	  801415	      1359 ns/op	    1384 B/op	       8 allocs/op
 func BenchmarkAggregationGraph(b *testing.B) {
 	polygon, holes, _, err := utils.NewPolygonsFromJSON([]byte(floorPlan))
 	if err != nil {
@@ -23,8 +24,15 @@ func BenchmarkAggregationGraph(b *testing.B) {
 
 	var (
 		recastGraph = NewRecast(mesh.NewPolygon(polygon, 35), nHoles, WithSearchOutOfArea(true))
-		start       = geom.Vector2{X: 60, Y: 10}
-		dest        = geom.Vector2{X: 425, Y: 10}
+		// out area
+		start = geom.Vector2{X: 60, Y: 10}
+		dest  = geom.Vector2{X: 425, Y: 10}
+		//inside area
+		//start = geom.Vector2{X: 25, Y: 25}
+		//dest  = geom.Vector2{X: 430, Y: 200}
+		// direct
+		//start = geom.Vector2{X: 60, Y: 60}
+		//dest  = geom.Vector2{X: 60, Y: 100}
 	)
 
 	_ = recastGraph.Generate(nil)

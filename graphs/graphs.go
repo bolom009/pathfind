@@ -3,9 +3,7 @@ package graphs
 import (
 	"context"
 	"github.com/bolom009/pathfind/obstacles"
-	"iter"
 	"maps"
-	"slices"
 )
 
 // NavOpts contains optional objects for aggregation graph
@@ -22,7 +20,7 @@ type NavGraph[Node comparable] interface {
 	AggregationGraph(Node, Node, *NavOpts) Graph[Node]
 	GetVisibility(opts *NavOpts) Graph[Node]
 	ContainsPoint(Node) bool
-	Cost(Node, Node) float64
+	Cost(Node, Node) float32
 }
 
 // Graph is represented by an adjacency list.
@@ -90,19 +88,10 @@ func (g Graph[Node]) DeleteNeighbour(node, neighbour Node) Graph[Node] {
 // Copy return copy of graph
 func (g Graph[Node]) Copy() Graph[Node] {
 	return maps.Clone(g)
-
-	//cGraph := make(Graph[Node])
-	//for k, v := range g {
-	//	cv := make([]Node, len(v))
-	//	copy(cv, v)
-	//
-	//	cGraph[k] = cv
-	//}
-	//return cGraph
 }
 
 // Neighbours returns the neighbour nodes of node n in the graph.
 // This method makes graph[Node] implement the astar.Graph[Node] interface.
-func (g Graph[Node]) Neighbours(n Node) iter.Seq[Node] {
-	return slices.Values(g[n])
+func (g Graph[Node]) Neighbours(n Node) []Node {
+	return g[n]
 }

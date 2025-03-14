@@ -3,8 +3,8 @@ package pathfind
 import (
 	"context"
 	"fmt"
+	"github.com/bolom009/astar"
 	"github.com/bolom009/pathfind/graphs"
-	"github.com/fzipp/astar"
 )
 
 // Pathfinder represent struct to operate with pathfinding
@@ -48,7 +48,13 @@ func (p *Pathfinder[Node]) Path(graphID int, start, dest Node, opts ...PathOptio
 		opt(navOpts)
 	}
 
-	vis := g.AggregationGraph(start, dest, navOpts)
+	vis := g.AggregationGraph(start, dest, nil)
+
+	// check if start-dest graph then skip A* search path
+	if len(vis) == 2 && vis[start][0] == dest && vis[dest][0] == start {
+		return []Node{start, dest}
+	}
+
 	path := astar.FindPath[Node](vis, start, dest, g.Cost, g.Cost)
 
 	return path
