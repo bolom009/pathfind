@@ -2,11 +2,12 @@ package grid
 
 import (
 	"context"
+	"math"
+
 	"github.com/bolom009/astar"
 	"github.com/bolom009/geom"
 	"github.com/bolom009/pathfind/graphs"
 	"github.com/bolom009/pathfind/obstacles"
-	"math"
 )
 
 type Grid struct {
@@ -50,12 +51,13 @@ func (g *Grid) ContainsPoint(point geom.Vector2) bool {
 
 func (g *Grid) GetVisibility(navOpts *graphs.NavOpts) graphs.Graph[geom.Vector2] {
 	vis := g.visibilityGraph.Copy()
+	if navOpts == nil {
+		return vis
+	}
 
-	if navOpts != nil {
-		if navOpts.Obstacles != nil {
-			// cut graph with obstacles
-			g.updateGraphWithObstacles(vis, navOpts.Obstacles)
-		}
+	if navOpts.Obstacles != nil {
+		// cut graph with obstacles
+		g.updateGraphWithObstacles(vis, navOpts.Obstacles)
 	}
 
 	return vis
