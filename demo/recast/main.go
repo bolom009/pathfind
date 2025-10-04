@@ -30,7 +30,7 @@ func main() {
 
 	nHoles := make([]*mesh.Hole, len(holes))
 	for i, hole := range holes {
-		nHoles[i] = mesh.NewHole(hole, -20.0)
+		nHoles[i] = mesh.NewObstacle(hole, 20.0, true)
 	}
 
 	var (
@@ -38,7 +38,7 @@ func main() {
 		path        = make([]geom.Vector2, 0)
 		start       = geom.Vector2{X: 25, Y: 25}
 		dest        = geom.Vector2{X: 240, Y: 630}
-		recastGraph = recast.NewRecast(mesh.NewPolygon(polygon, 20), nHoles, recast.WithSearchOutOfArea(true))
+		recastGraph = recast.NewRecast([]*mesh.Polygon{mesh.NewPolygon(polygon, nil, nHoles, 20)}, recast.WithSearchOutOfArea(true))
 		pathfinder  = pathfind.NewPathfinder[geom.Vector2]([]graphs.NavGraph[geom.Vector2]{
 			recastGraph,
 		})

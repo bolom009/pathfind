@@ -1,19 +1,28 @@
 package mesh
 
 import (
-	"github.com/bolom009/clipper"
 	"github.com/bolom009/geom"
 )
 
 type Hole struct {
-	points []geom.Vector2
-	offset float32
+	points   []geom.Vector2
+	offset   float32
+	viewable bool
 }
 
-func NewHole(points []geom.Vector2, offset float32) *Hole {
+func NewInnerHole(points []geom.Vector2, offset float32) *Hole {
 	return &Hole{
-		points: points,
-		offset: offset,
+		points:   points,
+		offset:   offset,
+		viewable: false,
+	}
+}
+
+func NewObstacle(points []geom.Vector2, offset float32, viewable bool) *Hole {
+	return &Hole{
+		points:   points,
+		offset:   offset,
+		viewable: viewable,
 	}
 }
 
@@ -25,6 +34,6 @@ func (h *Hole) Offset() float32 {
 	return h.offset
 }
 
-func (h *Hole) Clipper() []geom.Vector2 {
-	return clipper.OffsetPolygon(h.points, h.offset)
+func (h *Hole) Viewable() bool {
+	return h.viewable
 }

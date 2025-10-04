@@ -67,6 +67,30 @@ func (g *Grid) Cost(a, b geom.Vector2) float32 {
 	return g.costFunc(a, b)
 }
 
+func (g *Grid) IsRaycastHit(start, end geom.Vector2) bool {
+	return false
+}
+
+func (g *Grid) GetClosestPoint(point geom.Vector2) (geom.Vector2, bool) {
+	closest := float32(math.MaxFloat32)
+	closestPoint := geom.Vector2{}
+	for _, visSq := range g.visSquares {
+		for _, v := range []geom.Vector2{visSq.A, visSq.B, visSq.C, visSq.D, visSq.Center} {
+			dist := geom.Distance(point, v)
+			if dist < closest {
+				closest = dist
+				closestPoint = v
+			}
+		}
+	}
+
+	if closest == math.MaxFloat32 {
+		return closestPoint, false
+	}
+
+	return closestPoint, true
+}
+
 // AggregationGraph add start and dest points to existing pathfinder graph
 func (g *Grid) AggregationGraph(start, dest geom.Vector2, navOpts *graphs.NavOpts) graphs.Graph[geom.Vector2] {
 	vis := g.visibilityGraph.Copy()

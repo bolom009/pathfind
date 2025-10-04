@@ -7,15 +7,15 @@ import (
 	"github.com/bolom009/astar"
 	"github.com/bolom009/delaunay"
 	"github.com/bolom009/geom"
+	goclipper2 "github.com/bolom009/go-clipper2"
 	"github.com/bolom009/pathfind/graphs"
 	"github.com/bolom009/pathfind/mesh"
 )
 
 type Recast struct {
-	polygon         *mesh.Polygon
-	holes           []*mesh.Hole
-	clippedPolygon  []geom.Vector2
-	clippedHoles    [][]geom.Vector2
+	polygons        []*mesh.Polygon
+	clippedPolygons []*mesh.Polygon
+	raycasts        []*Raycast
 	triangles       []Triangle
 	visibilityGraph graphs.Graph[geom.Vector2]
 	vertices        []geom.Vector2
@@ -24,12 +24,12 @@ type Recast struct {
 	searchOutOfArea bool
 }
 
-func NewRecast(polygon *mesh.Polygon, holes []*mesh.Hole, options ...option) *Recast {
+func NewRecast(polygons []*mesh.Polygon, options ...option) *Recast {
 	r := &Recast{
-		polygon:         polygon,
-		holes:           holes,
+		polygons:        polygons,
 		triangles:       make([]Triangle, 0),
 		visibilityGraph: make(graphs.Graph[geom.Vector2]),
+		raycasts:        make([]*Raycast, len(polygons)),
 		costFunc:        heuristicEvaluation,
 	}
 
@@ -37,36 +37,83 @@ func NewRecast(polygon *mesh.Polygon, holes []*mesh.Hole, options ...option) *Re
 		option(r)
 	}
 
+	for i, polygon := range polygons {
+		r.raycasts[i] = NewRaycast(polygon.Points(), polygon.Obstacles())
+	}
+
 	return r
 }
 
 func (r *Recast) Generate(ctx context.Context) error {
-	r.clippedPolygon = r.polygon.Clipper()
-	r.clippedHoles = make([][]geom.Vector2, len(r.holes))
-	for i := 0; i < len(r.holes); i++ {
-		r.clippedHoles[i] = r.holes[i].Clipper()
-	}
+	oPolygons := make([]*mesh.Polygon, 0)
 
-	pp := make([]*delaunay.Point, 0)
-	for _, p := range r.clippedPolygon {
-		pp = append(pp, delaunay.NewPoint(p.X, p.Y))
-	}
+	// offset each polygon and their innerHole + obstacles
+	// then union results from offsets for to get new sub polygons
+	for _, polygon := range r.polygons {
+		polyOffsets := getPolyOffsetsWithUnion(polygon)
 
-	hh := make([][]*delaunay.Point, 0)
-	for _, points := range r.clippedHoles {
-		newHole := make([]*delaunay.Point, len(points))
-		for i, p := range points {
-			newHole[i] = delaunay.NewPoint(p.X, p.Y)
+		rHoles := make([]*mesh.Hole, 0)
+		subPolygons := make([][]geom.Vector2, 0)
+		for _, polyOffset := range polyOffsets {
+			cPoly := toPoint2(polyOffset)
+			if !goclipper2.IsPositiveD(polyOffset) {
+				rHoles = append(rHoles, mesh.NewObstacle(cPoly, 0, false))
+			} else {
+				subPolygons = append(subPolygons, cPoly)
+			}
 		}
 
-		hh = append(hh, newHole)
+		for _, subPolygon := range subPolygons {
+			subPolygonHoles := make([]*mesh.Hole, 0)
+			for _, hole := range rHoles {
+				if isPolygonAFullyInsideB(hole.Points(), subPolygon, true) {
+					subPolygonHoles = append(subPolygonHoles, hole)
+				}
+			}
+
+			oPolygons = append(oPolygons, mesh.NewPolygon(subPolygon, subPolygonHoles, nil, 0))
+		}
 	}
 
-	d := delaunay.NewSweepContext(pp, hh)
+	// process recast data based on all polygons what we got during clipper2 process
+	triangles := make([]Triangle, 0)
+	for _, polygon := range oPolygons {
+		innerHoles := make([]*mesh.Hole, len(polygon.InnerHoles()))
+		for i, innerHole := range polygon.InnerHoles() {
+			innerHoles[i] = mesh.NewObstacle(innerHole.Points(), 0, innerHole.Viewable())
+		}
 
-	r.triangles = convertTriangles(d.Triangulate())
+		obstacles := make([]*mesh.Hole, len(polygon.Obstacles()))
+		for i, obstacle := range polygon.Obstacles() {
+			obstacles[i] = mesh.NewObstacle(obstacle.Points(), 0, obstacle.Viewable())
+		}
+
+		poly := mesh.NewPolygon(polygon.Points(), innerHoles, obstacles, 0)
+		r.clippedPolygons = append(r.clippedPolygons, poly)
+
+		pp := make([]*delaunay.Point, 0)
+		for _, p := range poly.Points() {
+			pp = append(pp, delaunay.NewPoint(p.X, p.Y))
+		}
+
+		hh := make([][]*delaunay.Point, 0)
+		for _, voidArea := range poly.Holes() {
+			newHole := make([]*delaunay.Point, len(voidArea.Points()))
+			for i, p := range voidArea.Points() {
+				newHole[i] = delaunay.NewPoint(p.X, p.Y)
+			}
+
+			hh = append(hh, newHole)
+		}
+
+		d := delaunay.NewSweepContext(pp, hh)
+
+		cTriangles := convertTriangles(d.Triangulate())
+		triangles = append(triangles, cTriangles...)
+	}
+
+	r.triangles = triangles
 	r.visibilityGraph = r.generateGraph()
-
 	r.vertices = make([]geom.Vector2, len(r.visibilityGraph))
 
 	i := 0
@@ -81,11 +128,23 @@ func (r *Recast) Generate(ctx context.Context) error {
 }
 
 func (r *Recast) AggregationGraph(start, dest geom.Vector2, _ *graphs.NavOpts) graphs.Graph[geom.Vector2] {
-	// if start and dest in same visibility we can return start-dest graph
-	if isLineSegmentInsidePolygonOrHoles(r.polygon.Points(), r.holes, start, dest) {
-		return graphs.Graph[geom.Vector2]{
-			start: []geom.Vector2{dest},
-			dest:  []geom.Vector2{start},
+	for _, polygon := range r.polygons {
+		polyPoints := polygon.Points()
+		polyVoidAreas := polygon.Holes()
+		if !isInsidePolygonWithHoles(polyPoints, polyVoidAreas, start) {
+			continue
+		}
+
+		if !isInsidePolygonWithHoles(polyPoints, polyVoidAreas, dest) {
+			continue
+		}
+
+		// if start and dest in same visibility we can return start-dest graph
+		if isLineSegmentInsidePolygonOrHoles(polyPoints, polyVoidAreas, start, dest) {
+			return graphs.Graph[geom.Vector2]{
+				start: []geom.Vector2{dest},
+				dest:  []geom.Vector2{start},
+			}
 		}
 	}
 
@@ -142,18 +201,24 @@ func (r *Recast) AggregationGraph(start, dest geom.Vector2, _ *graphs.NavOpts) g
 	return vis
 }
 
-func (r *Recast) GetClosestPoint(point geom.Vector2) geom.Vector2 {
-	closest := float32(math.MaxFloat32)
-	closestPoint := geom.Vector2{}
-	for _, v := range r.vertices {
-		dist := geom.Distance(point, v)
-		if dist < closest {
-			closest = dist
-			closestPoint = v
+func (r *Recast) GetClosestPoint(point geom.Vector2) (geom.Vector2, bool) {
+	// fastest way (~50ns) but return only vertex of polygon not closest point to polygon
+	//closestPoint, _ := r.kdTree.search(point)
+	//return closestPoint
+
+	// ~1000ns
+	closestPoint, ok := r.closestPointOnPolygon(point)
+	return closestPoint, ok
+}
+
+func (r *Recast) IsRaycastHit(start, end geom.Vector2) bool {
+	for _, raycast := range r.raycasts {
+		if raycast.CheckLineIntersectsPolygon(start, end) {
+			return true
 		}
 	}
 
-	return closestPoint
+	return false
 }
 
 func (r *Recast) GetVisibility(_ *graphs.NavOpts) graphs.Graph[geom.Vector2] {
@@ -161,7 +226,25 @@ func (r *Recast) GetVisibility(_ *graphs.NavOpts) graphs.Graph[geom.Vector2] {
 }
 
 func (r *Recast) ContainsPoint(point geom.Vector2) bool {
-	return r.isInsidePolygonWithHoles(point)
+	//for _, triangle := range r.triangles {
+	//	p0 := triangle[0]
+	//	p1 := triangle[1]
+	//	p2 := triangle[2]
+	//
+	//	if pointInsideTriangle(p0, p1, p2, point) {
+	//		return true
+	//	}
+	//}
+	//
+	//return false
+
+	for _, polygon := range r.polygons {
+		if isInsidePolygonWithHoles(polygon.Points(), polygon.Holes(), point) {
+			return true
+		}
+	}
+
+	return false
 }
 
 func (r *Recast) Cost(a geom.Vector2, b geom.Vector2) float32 {
@@ -190,11 +273,11 @@ func (r *Recast) generateGraph() graphs.Graph[geom.Vector2] {
 	return vis
 }
 
-func (r *Recast) isInsidePolygonWithHoles(point geom.Vector2) bool {
-	if !pointInPolygon(point, r.polygon.Points()) {
+func isInsidePolygonWithHoles(polygon []geom.Vector2, holes []*mesh.Hole, point geom.Vector2) bool {
+	if !pointInPolygon(point, polygon) {
 		return false
 	}
-	for _, hole := range r.holes {
+	for _, hole := range holes {
 		if pointInPolygon(point, hole.Points()) {
 			return false
 		}
@@ -309,13 +392,16 @@ func onSegment(p, q, r geom.Vector2) bool {
 }
 
 func (r *Recast) getVisiblePoints(point geom.Vector2) []geom.Vector2 {
-	points := r.polygon.Points()
 	visiblePoints := make([]geom.Vector2, len(r.vertices))
 	count := 0
-	for _, v := range r.vertices {
-		if isLineSegmentInsidePolygonOrHoles(points, r.holes, point, v) {
-			visiblePoints[count] = v
-			count++
+	for _, polygon := range r.polygons {
+		points := polygon.Points()
+		voidAreas := polygon.Holes()
+		for _, v := range r.vertices {
+			if isLineSegmentInsidePolygonOrHoles(points, voidAreas, point, v) {
+				visiblePoints[count] = v
+				count++
+			}
 		}
 	}
 
@@ -329,25 +415,11 @@ func (r *Recast) closestPointOnPolygon(startPoint geom.Vector2) (geom.Vector2, b
 	exist := false
 
 	// Check exterior ring
-	for i := 0; i < len(r.clippedPolygon); i++ {
-		p1 := r.clippedPolygon[i]
-		p2 := r.clippedPolygon[(i+1)%len(r.clippedPolygon)] // Wrap around for last segment
-
-		closestOnSeg := closestPointOnSegment(startPoint, p1, p2)
-		dist := geom.Distance(startPoint, closestOnSeg)
-
-		if dist < minDist {
-			minDist = dist
-			closestFoundPoint = closestOnSeg
-			exist = true
-		}
-	}
-
-	// Check interior rings (holes)
-	for _, hole := range r.clippedHoles {
-		for i := 0; i < len(hole); i++ {
-			p1 := hole[i]
-			p2 := hole[(i+1)%len(hole)]
+	for _, polygon := range r.clippedPolygons {
+		clippedPolygon := polygon.Points()
+		for i := 0; i < len(clippedPolygon); i++ {
+			p1 := clippedPolygon[i]
+			p2 := clippedPolygon[(i+1)%len(clippedPolygon)] // Wrap around for last segment
 
 			closestOnSeg := closestPointOnSegment(startPoint, p1, p2)
 			dist := geom.Distance(startPoint, closestOnSeg)
@@ -356,6 +428,24 @@ func (r *Recast) closestPointOnPolygon(startPoint geom.Vector2) (geom.Vector2, b
 				minDist = dist
 				closestFoundPoint = closestOnSeg
 				exist = true
+			}
+		}
+
+		// Check interior rings (holes)
+		for _, voidArea := range polygon.Holes() {
+			clippedVoidArea := voidArea.Points()
+			for i := 0; i < len(clippedVoidArea); i++ {
+				p1 := clippedVoidArea[i]
+				p2 := clippedVoidArea[(i+1)%len(clippedVoidArea)]
+
+				closestOnSeg := closestPointOnSegment(startPoint, p1, p2)
+				dist := geom.Distance(startPoint, closestOnSeg)
+
+				if dist < minDist {
+					minDist = dist
+					closestFoundPoint = closestOnSeg
+					exist = true
+				}
 			}
 		}
 	}

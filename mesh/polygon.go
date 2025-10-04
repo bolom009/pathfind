@@ -1,19 +1,28 @@
 package mesh
 
 import (
-	"github.com/bolom009/clipper"
 	"github.com/bolom009/geom"
 )
 
 type Polygon struct {
 	points []geom.Vector2
+	// innerHoles represent holes inside polygon or holes created by closed circuit polygons
+	innerHoles []*Hole
+	// obstacles represent general obstacles like: wall, box, lake, building, arch etc.
+	obstacles []*Hole
+	// contains list of all polygon innerHoles and obstacles
+	holes []*Hole
+	// use for clipper2 offset process
 	offset float32
 }
 
-func NewPolygon(points []geom.Vector2, offset float32) *Polygon {
+func NewPolygon(points []geom.Vector2, innerHoles []*Hole, obstacles []*Hole, offset float32) *Polygon {
 	return &Polygon{
-		points: points,
-		offset: offset,
+		points:     points,
+		offset:     offset,
+		innerHoles: innerHoles,
+		obstacles:  obstacles,
+		holes:      append(obstacles, innerHoles...),
 	}
 }
 
@@ -21,10 +30,18 @@ func (p *Polygon) Points() []geom.Vector2 {
 	return p.points
 }
 
-func (p *Polygon) Offset() float32 {
-	return p.offset
+func (p *Polygon) Holes() []*Hole {
+	return p.holes
 }
 
-func (p *Polygon) Clipper() []geom.Vector2 {
-	return clipper.OffsetPolygon(p.points, p.offset)
+func (p *Polygon) InnerHoles() []*Hole {
+	return p.innerHoles
+}
+
+func (p *Polygon) Obstacles() []*Hole {
+	return p.obstacles
+}
+
+func (p *Polygon) Offset() float32 {
+	return p.offset
 }

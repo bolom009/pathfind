@@ -21,11 +21,11 @@ func BenchmarkAggregationGraph(b *testing.B) {
 
 	nHoles := make([]*mesh.Hole, len(holes))
 	for i, hole := range holes {
-		nHoles[i] = mesh.NewHole(hole, -5.0)
+		nHoles[i] = mesh.NewObstacle(hole, -5.0, false)
 	}
 
 	var (
-		recastGraph = NewRecast(mesh.NewPolygon(polygon, 35), nHoles, WithSearchOutOfArea(true))
+		recastGraph = NewRecast([]*mesh.Polygon{mesh.NewPolygon(polygon, nil, nHoles, 35)}, WithSearchOutOfArea(true))
 		// out area
 		start = geom.Vector2{X: 60, Y: 10}
 		dest  = geom.Vector2{X: 425, Y: 10}
@@ -42,7 +42,7 @@ func BenchmarkAggregationGraph(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		_ = recastGraph.AggregationGraph(start, dest, nil)
 	}
 }
@@ -55,11 +55,11 @@ func BenchmarkAggregationGraphStartOffset(b *testing.B) {
 
 	nHoles := make([]*mesh.Hole, len(holes))
 	for i, hole := range holes {
-		nHoles[i] = mesh.NewHole(hole, -20.0)
+		nHoles[i] = mesh.NewObstacle(hole, -20.0, false)
 	}
 
 	var (
-		recastGraph = NewRecast(mesh.NewPolygon(polygon, 20), nHoles, WithSearchOutOfArea(true))
+		recastGraph = NewRecast([]*mesh.Polygon{mesh.NewPolygon(polygon, nil, nHoles, 20)}, WithSearchOutOfArea(true))
 		start       = geom.Vector2{X: 236, Y: 130}
 		dest        = geom.Vector2{X: 656, Y: 446}
 	)
@@ -82,17 +82,16 @@ func TestAggregationGraph(t *testing.T) {
 
 	nHoles := make([]*mesh.Hole, len(holes))
 	for i, hole := range holes {
-		nHoles[i] = mesh.NewHole(hole, -5.0)
+		nHoles[i] = mesh.NewObstacle(hole, -5.0, false)
 	}
 
 	var (
-		recastGraph = NewRecast(mesh.NewPolygon(polygon, 35), nHoles, WithSearchOutOfArea(true))
+		recastGraph = NewRecast([]*mesh.Polygon{mesh.NewPolygon(polygon, nil, nHoles, 35)}, WithSearchOutOfArea(true))
 		start       = geom.Vector2{X: 60, Y: 10}
 		dest        = geom.Vector2{X: 425, Y: 10}
 	)
 
 	_ = recastGraph.Generate(nil)
-
 	_ = recastGraph.AggregationGraph(start, dest, nil)
 	//for i, edges := range vis {
 	//	fmt.Println(i, cap(edges))

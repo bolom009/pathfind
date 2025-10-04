@@ -3,6 +3,7 @@ package pathfind
 import (
 	"context"
 	"fmt"
+
 	"github.com/bolom009/astar"
 	"github.com/bolom009/pathfind/graphs"
 )
@@ -60,7 +61,7 @@ func (p *Pathfinder[Node]) Path(graphID int, start, dest Node, opts ...PathOptio
 	return path
 }
 
-// Graph return generated graph based on square list
+// Graph return generated graph visibility
 func (p *Pathfinder[Node]) Graph(graphID int, opts ...PathOption) map[Node][]Node {
 	g := p.graphs[graphID]
 	if g == nil {
@@ -80,7 +81,7 @@ func (p *Pathfinder[Node]) GraphsNum() int {
 }
 
 // GraphWithSearchPath return generated graph with path nodes
-func (p *Pathfinder[Node]) GraphWithSearchPath(graphID int, start, dest Node, opts ...PathOption) map[Node][]Node {
+func (p *Pathfinder[Node]) GraphWithSearchPath(graphID int, start, dest Node, opts ...PathOption) graphs.Graph[Node] {
 	g := p.graphs[graphID]
 	if g == nil {
 		return nil

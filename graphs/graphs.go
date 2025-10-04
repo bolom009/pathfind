@@ -2,8 +2,9 @@ package graphs
 
 import (
 	"context"
-	"github.com/bolom009/pathfind/obstacles"
 	"maps"
+
+	"github.com/bolom009/pathfind/obstacles"
 )
 
 // NavOpts contains optional objects for aggregation graph
@@ -20,6 +21,8 @@ type NavGraph[Node comparable] interface {
 	AggregationGraph(Node, Node, *NavOpts) Graph[Node]
 	GetVisibility(opts *NavOpts) Graph[Node]
 	ContainsPoint(Node) bool
+	GetClosestPoint(Node) (Node, bool)
+	IsRaycastHit(Node, Node) bool
 	Cost(Node, Node) float32
 }
 
