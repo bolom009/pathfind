@@ -80,6 +80,25 @@ func (p *Pathfinder[Node]) GraphsNum() int {
 	return len(p.graphs)
 }
 
+func (p *Pathfinder[Node]) GetClosestPoint(graphID int, point Node) (Node, bool) {
+	g := p.graphs[graphID]
+	if g == nil {
+		var zero Node
+		return zero, false
+	}
+
+	return g.GetClosestPoint(point)
+}
+
+func (p *Pathfinder[Node]) IsRaycastHit(graphID int, start, dest Node) bool {
+	g := p.graphs[graphID]
+	if g == nil {
+		return false
+	}
+
+	return g.IsRaycastHit(start, dest)
+}
+
 // GraphWithSearchPath return generated graph with path nodes
 func (p *Pathfinder[Node]) GraphWithSearchPath(graphID int, start, dest Node, opts ...PathOption) graphs.Graph[Node] {
 	g := p.graphs[graphID]
