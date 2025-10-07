@@ -45,14 +45,14 @@ func NewRecast(polygons []*mesh.Polygon, options ...option) *Recast {
 }
 
 func (r *Recast) Generate(ctx context.Context) error {
-	oPolygons := make([]*mesh.Polygon, 0)
-
+	oPolygons := make([]*mesh.Polygon, 0, len(r.polygons))
+	triLen := 0
 	// offset each polygon and their innerHole + obstacles
 	// then union results from offsets for to get new sub polygons
 	for _, polygon := range r.polygons {
 		polyOffsets := getPolyOffsetsWithUnion(polygon)
 
-		rHoles := make([]*mesh.Hole, 0)
+		rHoles := make([]*mesh.Hole, 0, len(polygon.Holes()))
 		subPolygons := make([][]geom.Vector2, 0)
 		for _, polyOffset := range polyOffsets {
 			cPoly := toPoint2(polyOffset)
@@ -64,10 +64,12 @@ func (r *Recast) Generate(ctx context.Context) error {
 		}
 
 		for _, subPolygon := range subPolygons {
-			subPolygonHoles := make([]*mesh.Hole, 0)
+			triLen += len(subPolygon)
+			subPolygonHoles := make([]*mesh.Hole, 0, len(rHoles))
 			for _, hole := range rHoles {
 				if isPolygonAFullyInsideB(hole.Points(), subPolygon, true) {
 					subPolygonHoles = append(subPolygonHoles, hole)
+					triLen += len(hole.Points())
 				}
 			}
 
@@ -76,7 +78,7 @@ func (r *Recast) Generate(ctx context.Context) error {
 	}
 
 	// process recast data based on all polygons what we got during clipper2 process
-	triangles := make([]Triangle, 0)
+	triangles := make([]Triangle, 0, triLen)
 	for _, polygon := range oPolygons {
 		innerHoles := make([]*mesh.Hole, len(polygon.InnerHoles()))
 		for i, innerHole := range polygon.InnerHoles() {
@@ -97,9 +99,9 @@ func (r *Recast) Generate(ctx context.Context) error {
 		}
 
 		hh := make([][]*delaunay.Point, 0)
-		for _, voidArea := range poly.Holes() {
-			newHole := make([]*delaunay.Point, len(voidArea.Points()))
-			for i, p := range voidArea.Points() {
+		for _, hole := range poly.Holes() {
+			newHole := make([]*delaunay.Point, len(hole.Points()))
+			for i, p := range hole.Points() {
 				newHole[i] = delaunay.NewPoint(p.X, p.Y)
 			}
 
@@ -113,6 +115,7 @@ func (r *Recast) Generate(ctx context.Context) error {
 	}
 
 	r.triangles = triangles
+	// generate graph based on triangles
 	r.visibilityGraph = r.generateGraph()
 	r.vertices = make([]geom.Vector2, len(r.visibilityGraph))
 
@@ -122,7 +125,7 @@ func (r *Recast) Generate(ctx context.Context) error {
 		i++
 	}
 
-	r.kdTree = BuildKDTree(r.vertices, 0)
+	//r.kdTree = BuildKDTree(r.vertices, 0)
 
 	return nil
 }
@@ -256,7 +259,7 @@ func (r *Recast) Triangles() []Triangle {
 }
 
 func (r *Recast) generateGraph() graphs.Graph[geom.Vector2] {
-	vis := make(graphs.Graph[geom.Vector2])
+	vis := make(graphs.Graph[geom.Vector2], len(r.triangles))
 	for _, triangle := range r.triangles {
 		var (
 			p0 = triangle[0]
@@ -265,9 +268,9 @@ func (r *Recast) generateGraph() graphs.Graph[geom.Vector2] {
 		)
 
 		// link top vertices
-		vis.LinkBoth(p0, p1)
-		vis.LinkBoth(p0, p2)
-		vis.LinkBoth(p1, p2)
+		vis.LinkBoth(p0, p1, 2)
+		vis.LinkBoth(p0, p2, 2)
+		vis.LinkBoth(p1, p2, 2)
 	}
 
 	return vis
@@ -396,9 +399,9 @@ func (r *Recast) getVisiblePoints(point geom.Vector2) []geom.Vector2 {
 	count := 0
 	for _, polygon := range r.polygons {
 		points := polygon.Points()
-		voidAreas := polygon.Holes()
+		holes := polygon.Holes()
 		for _, v := range r.vertices {
-			if isLineSegmentInsidePolygonOrHoles(points, voidAreas, point, v) {
+			if isLineSegmentInsidePolygonOrHoles(points, holes, point, v) {
 				visiblePoints[count] = v
 				count++
 			}

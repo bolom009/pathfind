@@ -105,8 +105,8 @@ func pointInPolygonF(pt geom.Vector2, poly []geom.Vector2) int {
 
 func isPointOnSegment(p, a, b geom.Vector2) bool {
 	// bounding box test
-	if float64(p.X) < math.Min(float64(a.X), float64(b.X))-eps || float64(p.X) > math.Max(float64(a.X), float64(b.X))+eps ||
-		float64(p.Y) < math.Min(float64(a.Y), float64(b.Y))-eps || float64(p.Y) > math.Max(float64(a.Y), float64(b.Y))+eps {
+	if float64(p.X) < min(float64(a.X), float64(b.X))-eps || float64(p.X) > max(float64(a.X), float64(b.X))+eps ||
+		float64(p.Y) < min(float64(a.Y), float64(b.Y))-eps || float64(p.Y) > max(float64(a.Y), float64(b.Y))+eps {
 		return false
 	}
 	cross := (p.X-a.X)*(b.Y-a.Y) - (p.Y-a.Y)*(b.X-a.X)

@@ -5,7 +5,7 @@ import (
 	"github.com/bolom009/geom"
 )
 
-type Triangle []geom.Vector2
+type Triangle [3]geom.Vector2
 
 func convertTriangles(dTriangles []*delaunay.Triangle) []Triangle {
 	triangles := make([]Triangle, len(dTriangles))
