@@ -399,6 +399,10 @@ func (r *Recast) getVisiblePoints(point geom.Vector2) []geom.Vector2 {
 	count := 0
 	for _, polygon := range r.polygons {
 		points := polygon.Points()
+		if !pointInPolygon(point, points) {
+			continue
+		}
+
 		holes := polygon.Holes()
 		for _, v := range r.vertices {
 			if isLineSegmentInsidePolygonOrHoles(points, holes, point, v) {
