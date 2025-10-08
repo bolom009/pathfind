@@ -101,9 +101,7 @@ func main() {
 			dest = geom.Vector2{X: mouseWorldPos.X, Y: -mouseWorldPos.Y}
 			t := time.Now()
 			searchPath := pathfinder.Path(graphId, start, dest)
-			if len(searchPath) >= 2 {
-				path = searchPath
-			}
+			path = searchPath
 			pathTime = time.Since(t).String()
 		}
 
@@ -111,9 +109,7 @@ func main() {
 			start = geom.Vector2{X: mouseWorldPos.X, Y: -mouseWorldPos.Y}
 			t := time.Now()
 			searchPath := pathfinder.Path(graphId, start, dest)
-			if len(searchPath) >= 2 {
-				path = searchPath
-			}
+			path = searchPath
 			pathTime = time.Since(t).String()
 		}
 

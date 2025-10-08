@@ -12,8 +12,14 @@ import (
 	"github.com/bolom009/pathfind/mesh"
 )
 
+type edge struct {
+	a geom.Vector2
+	b geom.Vector2
+}
+
 type Recast struct {
 	polygons        []*mesh.Polygon
+	edges           []*edge
 	clippedPolygons []*mesh.Polygon
 	raycasts        []*Raycast
 	triangles       []Triangle
@@ -37,14 +43,12 @@ func NewRecast(polygons []*mesh.Polygon, options ...option) *Recast {
 		option(r)
 	}
 
-	for i, polygon := range polygons {
-		r.raycasts[i] = NewRaycast(polygon.Points(), polygon.Obstacles())
-	}
-
 	return r
 }
 
 func (r *Recast) Generate(ctx context.Context) error {
+	r.prepareRaycasts()
+
 	oPolygons := make([]*mesh.Polygon, 0, len(r.polygons))
 	triLen := 0
 	// offset each polygon and their innerHole + obstacles
@@ -76,6 +80,8 @@ func (r *Recast) Generate(ctx context.Context) error {
 			oPolygons = append(oPolygons, mesh.NewPolygon(subPolygon, subPolygonHoles, nil, 0))
 		}
 	}
+
+	r.prepareEdges(triLen)
 
 	// process recast data based on all polygons what we got during clipper2 process
 	triangles := make([]Triangle, 0, triLen)
@@ -276,6 +282,36 @@ func (r *Recast) generateGraph() graphs.Graph[geom.Vector2] {
 	return vis
 }
 
+func (r *Recast) prepareEdges(edgeLen int) {
+	r.edges = make([]*edge, 0, edgeLen)
+	for _, polygon := range r.polygons {
+		r.edges = append(r.edges, polyToEdges(polygon.Points())...)
+		for _, hole := range polygon.Holes() {
+			r.edges = append(r.edges, polyToEdges(hole.Points())...)
+		}
+	}
+}
+
+func polyToEdges(points []geom.Vector2) []*edge {
+	pLen := len(points)
+	edges := make([]*edge, pLen)
+	for i := range pLen - 1 {
+		p1, p2 := points[i], points[i+1]
+		edges[i] = &edge{p1, p2}
+	}
+
+	// last
+	edges[pLen-1] = &edge{points[0], points[pLen-1]}
+
+	return edges
+}
+
+func (r *Recast) prepareRaycasts() {
+	for i, polygon := range r.polygons {
+		r.raycasts[i] = NewRaycast(polygon.Points(), polygon.Obstacles())
+	}
+}
+
 func isInsidePolygonWithHoles(polygon []geom.Vector2, holes []*mesh.Hole, point geom.Vector2) bool {
 	if !pointInPolygon(point, polygon) {
 		return false
@@ -397,20 +433,38 @@ func onSegment(p, q, r geom.Vector2) bool {
 func (r *Recast) getVisiblePoints(point geom.Vector2) []geom.Vector2 {
 	visiblePoints := make([]geom.Vector2, len(r.vertices))
 	count := 0
-	for _, polygon := range r.polygons {
-		points := polygon.Points()
-		if !pointInPolygon(point, points) {
-			continue
-		}
 
-		holes := polygon.Holes()
-		for _, v := range r.vertices {
-			if isLineSegmentInsidePolygonOrHoles(points, holes, point, v) {
-				visiblePoints[count] = v
-				count++
+	// TODO better but not so accurate :( ~99853ns
+	for _, v := range r.vertices {
+		hasIntersection := false
+		for _, edge := range r.edges {
+			if lineSegmentIntersection(edge.a, edge.b, v, point) {
+				hasIntersection = true
+				break
 			}
 		}
+
+		if !hasIntersection {
+			visiblePoints[count] = v
+			count++
+		}
 	}
+
+	// TODO more accurate but expensive :( ~190585ns
+	//for _, polygon := range r.polygons {
+	//	points := polygon.Points()
+	//	if !pointInPolygon(point, points) {
+	//		continue
+	//	}
+	//
+	//	holes := polygon.Holes()
+	//	for _, v := range r.vertices {
+	//		if isLineSegmentInsidePolygonOrHoles(points, holes, point, v) {
+	//			visiblePoints[count] = v
+	//			count++
+	//		}
+	//	}
+	//}
 
 	return visiblePoints[:count]
 }

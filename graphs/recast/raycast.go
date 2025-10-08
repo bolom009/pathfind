@@ -127,12 +127,21 @@ func lineIntersectsPolygonOutline(lineStart, lineEnd geom.Vector2, polygonPoints
 
 // lineSegmentIntersection checks if two line segments intersect
 func lineSegmentIntersection(p1, p2, p3, p4 geom.Vector2) bool {
-	denom := (p4.Y-p3.Y)*(p2.X-p1.X) - (p4.X-p3.X)*(p2.Y-p1.Y)
+	s1 := p4.Y - p3.Y
+	s2 := p2.X - p1.X
+	s3 := p4.X - p3.X
+	s4 := p2.Y - p1.Y
+
+	denom := s1*s2 - s3*s4
 	if denom == 0 {
 		return false // Parallel lines
 	}
-	ua := ((p4.X-p3.X)*(p1.Y-p3.Y) - (p4.Y-p3.Y)*(p1.X-p3.X)) / denom
-	ub := ((p2.X-p1.X)*(p1.Y-p3.Y) - (p2.Y-p1.Y)*(p1.X-p3.X)) / denom
+
+	s5 := p1.Y - p3.Y
+	s6 := p1.X - p3.X
+
+	ua := (s3*s5 - s1*s6) / denom
+	ub := (s2*s5 - s4*s6) / denom
 	return ua >= 0 && ua <= 1 && ub >= 0 && ub <= 1
 }
 
