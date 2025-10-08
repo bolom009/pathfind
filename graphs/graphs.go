@@ -4,6 +4,7 @@ import (
 	"context"
 	"maps"
 
+	"github.com/bolom009/pathfind/mesh"
 	"github.com/bolom009/pathfind/obstacles"
 )
 
@@ -20,6 +21,8 @@ type NavGraph[Node comparable] interface {
 	Generate(ctx context.Context) error
 	AggregationGraph(Node, Node, *NavOpts) Graph[Node]
 	GetVisibility(opts *NavOpts) Graph[Node]
+	AddObstacles(...*mesh.Hole) []uint32
+	RemoveObstacles(...uint32)
 	ContainsPoint(Node) bool
 	GetClosestPoint(Node) (Node, bool)
 	IsRaycastHit(Node, Node) bool

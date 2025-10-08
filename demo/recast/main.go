@@ -42,11 +42,18 @@ func main() {
 	}
 
 	var (
-		screen      = geom.Vector2{800, 600}
-		camera      = rl.NewCamera2D(rl.NewVector2(0, 0), rl.NewVector2(-screen.X/2, -screen.Y/2), 0, 0.5)
-		path        = make([]geom.Vector2, 0)
-		start       = geom.Vector2{X: 202, Y: -268}
-		dest        = geom.Vector2{X: -4, Y: 84}
+		screen         = geom.Vector2{800, 600}
+		camera         = rl.NewCamera2D(rl.NewVector2(0, 0), rl.NewVector2(-screen.X/2, -screen.Y/2), 0, 0.5)
+		path           = make([]geom.Vector2, 0)
+		start          = geom.Vector2{X: 202, Y: -268}
+		dest           = geom.Vector2{X: -4, Y: 84}
+		extraObstacles = []*mesh.Hole{
+			mesh.NewObstacle([]geom.Vector2{
+				{220, -40},
+				{210, -30},
+				{200, -40},
+			}, 3, true),
+		}
 		recastGraph = recast.NewRecast(rPolygons, recast.WithSearchOutOfArea(true))
 		pathfinder  = pathfind.NewPathfinder[geom.Vector2]([]graphs.NavGraph[geom.Vector2]{
 			recastGraph,
@@ -65,6 +72,7 @@ func main() {
 	if err := pathfinder.Initialize(context.Background()); err != nil {
 		panic(err)
 	}
+	recastGraph.AddObstacles(extraObstacles...)
 	initTime = time.Since(t).String()
 
 	t = time.Now()
@@ -119,6 +127,10 @@ func main() {
 			for _, obstacle := range polygon.Obstacles {
 				drawArea(obstacle.Points, rl.Gray)
 			}
+		}
+
+		for _, extraObstacle := range extraObstacles {
+			drawArea(extraObstacle.Points(), rl.Gray)
 		}
 
 		drawTriangles(triangles, rl.LightGray)

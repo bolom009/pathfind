@@ -1,7 +1,5 @@
 github.com/bolom009/astar v1.0.1 h1:be17S68tyYD6aZD0IMjU2sUX19w6nJhLbmBlx1aIJEg=
 github.com/bolom009/astar v1.0.1/go.mod h1:2AGXVxVkduNPNnkJ0pYpqkJCfCDfFtZgtQ/JyFeZN2k=
-github.com/bolom009/delaunay v1.0.1 h1:iNxbUqTCqygFJu4jgSi4cQXQAkJJtAUdeFoIihOn5Yk=
-github.com/bolom009/delaunay v1.0.1/go.mod h1:DPz4UjKa218LrCbPxN8eq86fxAbIHHhKKGLATMZ2DbQ=
 github.com/bolom009/delaunay v1.1.0 h1:ezcqKjoW11tMj99aPPLkkzYujHhNsQXrEuZH0H/ZiC0=
 github.com/bolom009/delaunay v1.1.0/go.mod h1:DPz4UjKa218LrCbPxN8eq86fxAbIHHhKKGLATMZ2DbQ=
 github.com/bolom009/geom v1.7.0 h1:fmGnSMM5vz1EmjNrrJZlIz6SMJgzYspBMgQAerlWwdA=
@@ -28,5 +26,7 @@ golang.org/x/exp v0.0.0-20250911091902-df9299821621 h1:2id6c1/gto0kaHYyrixvknJ8t
 golang.org/x/exp v0.0.0-20250911091902-df9299821621/go.mod h1:TwQYMMnGpvZyc+JpB/UAuTNIsVJifOlSkrZkhcvpVUk=
 golang.org/x/sys v0.31.0 h1:ioabZlmFYtWhL+TRYpcnNlLwhyxaM9kWTDEmfnprqik=
 golang.org/x/sys v0.31.0/go.mod h1:BJP2sWEmIv4KK5OTEluFJCKSidICx8ciO85XgH3Ak8k=
+gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405 h1:yhCVgyC4o1eVCa2tZl7eS0r+SDo693bJlVdllGtEeKM=
+gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405/go.mod h1:Co6ibVJAznAaIkqp8huTwlJQCZ016jof/cbN4VW5Yz0=
 gopkg.in/yaml.v3 v3.0.1 h1:fxVm/GzAzEWqLHuvctI91KS9hhNmmWOoWu0XTYJS7CA=
 gopkg.in/yaml.v3 v3.0.1/go.mod h1:K4uyk7z7BCEPqu6E+C64Yfv1cQ7kz7rIZviUmN+EgEM=

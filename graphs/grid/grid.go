@@ -7,6 +7,7 @@ import (
 	"github.com/bolom009/astar"
 	"github.com/bolom009/geom"
 	"github.com/bolom009/pathfind/graphs"
+	"github.com/bolom009/pathfind/mesh"
 	"github.com/bolom009/pathfind/obstacles"
 )
 
@@ -123,6 +124,12 @@ func (g *Grid) VisibleSquares() []Square {
 
 	return cSquares
 }
+
+func (g *Grid) AddObstacles(...*mesh.Hole) []uint32 {
+	return nil
+}
+
+func (g *Grid) RemoveObstacles(...uint32) {}
 
 func (g *Grid) addStartDestPointsToGraph(vis graphs.Graph[geom.Vector2], start geom.Vector2, dest geom.Vector2) {
 	for _, square := range g.visSquares {

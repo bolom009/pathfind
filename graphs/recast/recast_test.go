@@ -34,6 +34,8 @@ func BenchmarkAggregationGraph(b *testing.B) {
 	)
 
 	_ = recastGraph.Generate(nil)
+	//extraObstacles := generateExtraObstacles(1)
+	//recastGraph.AddObstacles(extraObstacles...)
 
 	b.ResetTimer()
 
@@ -86,6 +88,63 @@ func BenchmarkRecast_Generate(b *testing.B) {
 	}
 }
 
+// BenchmarkRecast_ExtraObstacles-16    	    2268	    510915 ns/op	  370032 B/op	    5932 allocs/op
+// BenchmarkRecast_ExtraObstacles-16    	    1707	    666997 ns/op	  493258 B/op	    8259 allocs/op
+// BenchmarkRecast_ExtraObstacles-16   	    	 667	   1788285 ns/op	 1026209 B/op	   18709 allocs/op (150 obstacles)
+func BenchmarkRecast_ExtraObstacles(b *testing.B) {
+	rPolygons, err := loadLargeLocation()
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	extraObstacles := generateExtraObstacles(150)
+
+	b.ReportAllocs()
+	b.ResetTimer()
+
+	ctx := context.Background()
+	for b.Loop() {
+		b.StopTimer()
+		recast := NewRecast(rPolygons)
+		_ = recast.Generate(ctx)
+		b.StartTimer()
+
+		recast.AddObstacles(extraObstacles...)
+	}
+}
+
+func Test_polyToEdges(t *testing.T) {
+	var (
+		points = []geom.Vector2{
+			geom.Vector2{X: 1, Y: 1},
+			geom.Vector2{X: 2, Y: 3},
+			geom.Vector2{X: 3, Y: 1},
+		}
+		want = []*edge{
+			&edge{geom.Vector2{X: 1, Y: 1}, geom.Vector2{X: 2, Y: 3}},
+			&edge{geom.Vector2{X: 2, Y: 3}, geom.Vector2{X: 3, Y: 1}},
+			&edge{geom.Vector2{X: 1, Y: 1}, geom.Vector2{X: 3, Y: 1}},
+		}
+	)
+
+	if got := polyToEdges(points); !reflect.DeepEqual(got, want) {
+		t.Errorf("polyToEdges() = %v, want %v", got, want)
+	}
+}
+
+func generateExtraObstacles(n int) []*mesh.Hole {
+	extraObstacles := make([]*mesh.Hole, n)
+	for i := 0; i < n; i++ {
+		shift := float32(1 * i)
+		extraObstacles[i] = mesh.NewObstacle([]geom.Vector2{
+			{220 + shift, -40},
+			{210 + shift, -30},
+			{200 + shift, -40},
+		}, 3, true)
+	}
+	return extraObstacles
+}
+
 func loadLargeLocation() ([]*mesh.Polygon, error) {
 	location, err := utils.NewLocationDataFromJSON([]byte(largeLocation))
 	if err != nil {
@@ -108,23 +167,4 @@ func loadLargeLocation() ([]*mesh.Polygon, error) {
 	}
 
 	return rPolygons, nil
-}
-
-func Test_polyToEdges(t *testing.T) {
-	var (
-		points = []geom.Vector2{
-			geom.Vector2{X: 1, Y: 1},
-			geom.Vector2{X: 2, Y: 3},
-			geom.Vector2{X: 3, Y: 1},
-		}
-		want = []*edge{
-			&edge{geom.Vector2{X: 1, Y: 1}, geom.Vector2{X: 2, Y: 3}},
-			&edge{geom.Vector2{X: 2, Y: 3}, geom.Vector2{X: 3, Y: 1}},
-			&edge{geom.Vector2{X: 1, Y: 1}, geom.Vector2{X: 3, Y: 1}},
-		}
-	)
-
-	if got := polyToEdges(points); !reflect.DeepEqual(got, want) {
-		t.Errorf("polyToEdges() = %v, want %v", got, want)
-	}
 }
