@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"image/color"
 	"math"
 	"time"
 
@@ -47,15 +46,9 @@ func main() {
 		path           = make([]geom.Vector2, 0)
 		start          = geom.Vector2{X: 202, Y: -268}
 		dest           = geom.Vector2{X: -4, Y: 84}
-		extraObstacles = []*mesh.Hole{
-			mesh.NewObstacle([]geom.Vector2{
-				{220, -40},
-				{210, -30},
-				{200, -40},
-			}, 3, true),
-		}
-		recastGraph = recast.NewRecast(rPolygons, recast.WithSearchOutOfArea(true))
-		pathfinder  = pathfind.NewPathfinder[geom.Vector2]([]graphs.NavGraph[geom.Vector2]{
+		extraObstacles = map[uint32]*mesh.Hole{}
+		recastGraph    = recast.NewRecast(rPolygons, recast.WithSearchOutOfArea(true))
+		pathfinder     = pathfind.NewPathfinder[geom.Vector2]([]graphs.NavGraph[geom.Vector2]{
 			recastGraph,
 		})
 		graphId        = 0
@@ -72,7 +65,6 @@ func main() {
 	if err := pathfinder.Initialize(context.Background()); err != nil {
 		panic(err)
 	}
-	recastGraph.AddObstacles(extraObstacles...)
 	initTime = time.Since(t).String()
 
 	t = time.Now()
@@ -105,7 +97,15 @@ func main() {
 		rl.BeginMode2D(camera)
 		rl.ClearBackground(bgColor)
 
-		if !rl.IsKeyDown(rl.KeyLeftControl) && rl.IsMouseButtonPressed(rl.MouseLeftButton) {
+		if rl.IsKeyDown(rl.KeyLeftControl) && rl.IsMouseButtonPressed(rl.MouseLeftButton) {
+			start = geom.Vector2{X: mouseWorldPos.X, Y: -mouseWorldPos.Y}
+			t := time.Now()
+			searchPath := pathfinder.Path(graphId, start, dest)
+			path = searchPath
+			pathTime = time.Since(t).String()
+		}
+
+		if rl.IsKeyDown(rl.KeyLeftControl) && rl.IsMouseButtonPressed(rl.MouseRightButton) {
 			dest = geom.Vector2{X: mouseWorldPos.X, Y: -mouseWorldPos.Y}
 			t := time.Now()
 			searchPath := pathfinder.Path(graphId, start, dest)
@@ -113,12 +113,39 @@ func main() {
 			pathTime = time.Since(t).String()
 		}
 
-		if rl.IsKeyDown(rl.KeyLeftControl) && rl.IsMouseButtonPressed(rl.MouseLeftButton) {
-			start = geom.Vector2{X: mouseWorldPos.X, Y: -mouseWorldPos.Y}
-			t := time.Now()
-			searchPath := pathfinder.Path(graphId, start, dest)
-			path = searchPath
-			pathTime = time.Since(t).String()
+		if rl.IsKeyDown(rl.KeyLeftAlt) && rl.IsMouseButtonPressed(rl.MouseLeftButton) {
+			mPoint := geom.Vector2{X: mouseWorldPos.X, Y: -mouseWorldPos.Y}
+			extraObstacle := mesh.NewObstacle([]geom.Vector2{
+				{mPoint.X + 20, mPoint.Y},
+				{mPoint.X + 10, mPoint.Y + 10},
+				{mPoint.X, mPoint.Y},
+			}, 3, true)
+			//extraObstacle := mesh.NewObstacle([]geom.Vector2{
+			//	{mPoint.X, mPoint.Y},
+			//	{mPoint.X + 10, mPoint.Y + 10},
+			//	{mPoint.X + 20, mPoint.Y},
+			//}, 3, true)
+
+			ids := recastGraph.AddObstacles(extraObstacle)
+			extraObstacles[ids[0]] = extraObstacle
+
+			trianglesCount = len(recastGraph.Triangles())
+			triangles = recastGraph.Triangles()
+		}
+		if rl.IsKeyDown(rl.KeyLeftAlt) && rl.IsMouseButtonPressed(rl.MouseRightButton) {
+			mPoint := geom.Vector2{X: mouseWorldPos.X, Y: -mouseWorldPos.Y}
+			deleteIds := make([]uint32, 0)
+			for oId, eObstacle := range extraObstacles {
+				if pointInPolygon(mPoint, eObstacle.Points()) {
+					deleteIds = append(deleteIds, oId)
+					delete(extraObstacles, oId)
+				}
+			}
+
+			recastGraph.RemoveObstacles(deleteIds...)
+			trianglesCount = len(recastGraph.Triangles())
+			triangles = recastGraph.Triangles()
+
 		}
 
 		// drawing map
@@ -129,11 +156,11 @@ func main() {
 			}
 		}
 
+		drawTriangles(triangles, rl.LightGray, true)
+
 		for _, extraObstacle := range extraObstacles {
 			drawArea(extraObstacle.Points(), rl.Gray)
 		}
-
-		drawTriangles(triangles, rl.LightGray)
 
 		//if isDrawGraph {
 		//	drawGraph(pathfinder.GraphWithSearchPath(graphId, start, dest))
@@ -182,8 +209,8 @@ func drawPath(start, dest geom.Vector2, path []geom.Vector2, zoom float32, skipN
 		isSkipNumbers = true
 	}
 
-	rl.DrawCircleV(rl.NewVector2(start.X, -start.Y), 3/zoom, color.RGBA{R: 0x90, G: 0xee, B: 0x90, A: 0xff})
-	rl.DrawCircleV(rl.NewVector2(dest.X, -dest.Y), 3/zoom, color.RGBA{R: 0xe7, G: 0x6f, B: 0x51, A: 0xFF})
+	rl.DrawCircleV(rl.NewVector2(start.X, -start.Y), 3/zoom, rl.DarkGreen)
+	rl.DrawCircleV(rl.NewVector2(dest.X, -dest.Y), 3/zoom, rl.Red)
 
 	if len(path) == 0 {
 		return
@@ -191,7 +218,7 @@ func drawPath(start, dest geom.Vector2, path []geom.Vector2, zoom float32, skipN
 
 	for i := range len(path) - 1 {
 		p1, p2 := path[i], path[i+1]
-		rl.DrawLineV(rl.NewVector2(p1.X, -p1.Y), rl.NewVector2(p2.X, -p2.Y), color.RGBA{R: 0x2a, G: 0x9d, B: 0x8f, A: 0xFF})
+		rl.DrawLineV(rl.NewVector2(p1.X, -p1.Y), rl.NewVector2(p2.X, -p2.Y), rl.Green)
 		if !isSkipNumbers {
 			p := p1.Add(p2).Div(2)
 			rl.DrawText(fmt.Sprintf("%v", i+1), int32(p.X), int32(-p.Y), 10, rl.Red)
@@ -199,13 +226,19 @@ func drawPath(start, dest geom.Vector2, path []geom.Vector2, zoom float32, skipN
 	}
 }
 
-func drawTriangles(triangles []recast.Triangle, color rl.Color) {
+func drawTriangles(triangles []recast.Triangle, color rl.Color, drawEdges ...bool) {
 	for _, pp := range triangles {
 		rl.DrawTriangleFan([]rl.Vector2{
 			rl.NewVector2(pp[0].X, -pp[0].Y),
 			rl.NewVector2(pp[1].X, -pp[1].Y),
 			rl.NewVector2(pp[2].X, -pp[2].Y),
 		}, color)
+
+		if len(drawEdges) > 0 {
+			rl.DrawLineV(rl.NewVector2(pp[0].X, -pp[0].Y), rl.NewVector2(pp[1].X, -pp[1].Y), rl.Gray)
+			rl.DrawLineV(rl.NewVector2(pp[1].X, -pp[1].Y), rl.NewVector2(pp[2].X, -pp[2].Y), rl.Gray)
+			rl.DrawLineV(rl.NewVector2(pp[0].X, -pp[0].Y), rl.NewVector2(pp[2].X, -pp[2].Y), rl.Gray)
+		}
 	}
 }
 
@@ -260,4 +293,24 @@ func drawTopPanel(width int32, tPos rl.Vector2, isDrawGraph *bool, initTime,
 	rlgui.Label(rl.NewRectangle(440, 10, 200, 15), fmt.Sprintf("Triangles %v", trianglesCount))
 	rl.DrawText(" | ", 520, 10, 15, rl.Gray)
 	rlgui.Label(rl.NewRectangle(540, 10, 180, 15), fmt.Sprintf("Graph (%vx%v)", vertexCount, edgesCount))
+}
+
+func pointInPolygon(p geom.Vector2, poly []geom.Vector2) bool {
+	inside := false
+	n := len(poly)
+	for i := 0; i < n; i++ {
+		p1 := poly[i]
+		p2 := poly[(i+1)%n]
+
+		// Check if the edge (p1->p2) straddles the horizontal line at p.Y
+		condY := (p1.Y <= p.Y && p2.Y > p.Y) || (p2.Y <= p.Y && p1.Y > p.Y)
+		if condY {
+			// Compute the x-coordinate of intersection of the polygon edge with the line y = p.Y
+			xIntersect := p1.X + (p.Y-p1.Y)*(p2.X-p1.X)/(p2.Y-p1.Y)
+			if xIntersect > p.X {
+				inside = !inside
+			}
+		}
+	}
+	return inside
 }

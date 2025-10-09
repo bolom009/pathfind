@@ -7,7 +7,7 @@ import (
 	"github.com/bolom009/pathfind/mesh"
 )
 
-func getPolyOffsetsWithUnion(polygon *mesh.Polygon) goclipper2.PathsD {
+func (r *Recast) getPolyOffsetsWithUnion(polygon *mesh.Polygon) goclipper2.PathsD {
 	subject := make(goclipper2.PathsD, 0)
 	newPaths := inflatePathsD(goclipper2.PathsD{toPathD(polygon.Points())}, float64(-polygon.Offset()), goclipper2.Miter, goclipper2.Polygon)
 	subject = append(subject, newPaths...)

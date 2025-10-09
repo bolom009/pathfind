@@ -21,8 +21,6 @@ type Recast struct {
 	polygons        []*mesh.Polygon
 	edges           []*edge
 	clippedPolygons []*mesh.Polygon
-	clipped2PolyMap map[int]int
-	poly2ClippedMap map[int]int
 	raycasts        []*Raycast
 	triangles       []Triangle
 	visibilityGraph graphs.Graph[geom.Vector2]
@@ -32,21 +30,21 @@ type Recast struct {
 	searchOutOfArea bool
 
 	// extra obstacles
-	obstaclePool          *ObstaclePool
-	polyExtraObstaclesMap map[int][]*mesh.Hole
+	obstaclePool                *obstaclePool
+	extraClippedPolygons        []*mesh.Polygon
+	extraObstacleId2ClippedPoly map[obstaclePolyPair]goclipper2.PathsD
 }
 
 func NewRecast(polygons []*mesh.Polygon, options ...option) *Recast {
 	r := &Recast{
-		polygons:              polygons,
-		triangles:             make([]Triangle, 0),
-		visibilityGraph:       make(graphs.Graph[geom.Vector2]),
-		raycasts:              make([]*Raycast, len(polygons)),
-		clipped2PolyMap:       make(map[int]int),
-		poly2ClippedMap:       make(map[int]int),
-		polyExtraObstaclesMap: make(map[int][]*mesh.Hole),
-		obstaclePool:          NewObstaclePool(30),
-		costFunc:              heuristicEvaluation,
+		polygons:                    polygons,
+		triangles:                   make([]Triangle, 0),
+		visibilityGraph:             make(graphs.Graph[geom.Vector2]),
+		raycasts:                    make([]*Raycast, len(polygons)),
+		extraClippedPolygons:        nil,
+		extraObstacleId2ClippedPoly: make(map[obstaclePolyPair]goclipper2.PathsD),
+		obstaclePool:                newObstaclePool(30),
+		costFunc:                    heuristicEvaluation,
 	}
 
 	for _, option := range options {
@@ -64,8 +62,8 @@ func (r *Recast) Generate(_ context.Context) error {
 	k := 0
 	// offset each polygon and their innerHole + obstacles
 	// then union results from offsets for to get new sub polygons
-	for i, polygon := range r.polygons {
-		polyOffsets := getPolyOffsetsWithUnion(polygon)
+	for _, polygon := range r.polygons {
+		polyOffsets := r.getPolyOffsetsWithUnion(polygon)
 
 		rHoles := make([]*mesh.Hole, 0, len(polygon.Holes()))
 		subPolygons := make([][]geom.Vector2, 0)
@@ -78,7 +76,7 @@ func (r *Recast) Generate(_ context.Context) error {
 			}
 		}
 
-		for j, subPolygon := range subPolygons {
+		for _, subPolygon := range subPolygons {
 			triLen += len(subPolygon)
 			subPolygonHoles := make([]*mesh.Hole, 0, len(rHoles))
 			for _, hole := range rHoles {
@@ -89,13 +87,9 @@ func (r *Recast) Generate(_ context.Context) error {
 			}
 
 			oPolygons = append(oPolygons, mesh.NewPolygon(subPolygon, subPolygonHoles, nil, 0))
-			r.poly2ClippedMap[i] = j
-			r.clipped2PolyMap[k] = i
 			k++
 		}
 	}
-
-	r.prepareEdges(triLen)
 
 	// process recast data based on all polygons what we got during clipper2 process
 	triangles := make([]Triangle, 0, triLen)
@@ -134,6 +128,11 @@ func (r *Recast) Generate(_ context.Context) error {
 		triangles = append(triangles, cTriangles...)
 	}
 
+	r.extraClippedPolygons = make([]*mesh.Polygon, len(r.clippedPolygons))
+	copy(r.extraClippedPolygons, r.clippedPolygons)
+
+	r.prepareEdges(triLen)
+
 	r.triangles = triangles
 	// generate graph based on triangles
 	r.visibilityGraph = r.generateGraph()
@@ -150,10 +149,9 @@ func (r *Recast) Generate(_ context.Context) error {
 }
 
 func (r *Recast) AggregationGraph(start, dest geom.Vector2, _ *graphs.NavOpts) graphs.Graph[geom.Vector2] {
-	for i, polygon := range r.polygons {
+	for _, polygon := range r.extraClippedPolygons {
 		polyPoints := polygon.Points()
-		extraObstacles := r.polyExtraObstaclesMap[i]
-		polyHoles := append(polygon.Holes(), extraObstacles...)
+		polyHoles := polygon.Holes()
 		if !isInsidePolygonWithHoles(polyPoints, polyHoles, start) {
 			continue
 		}
@@ -230,14 +228,9 @@ func (r *Recast) AddObstacles(obstacles ...*mesh.Hole) []uint32 {
 	}
 
 	ids := make([]uint32, len(obstacles))
-	subject := make(goclipper2.PathsD, 0)
-
-	clippedMap := make(map[int]int)
-
 	for i, obstacle := range obstacles {
 		rPoints := goclipper2.ReversePath(obstacle.Points())
 		newPaths := inflatePathsD(goclipper2.PathsD{toPathD(rPoints)}, float64(obstacle.Offset()), goclipper2.Miter, goclipper2.Polygon)
-		subject = append(subject, newPaths...)
 
 		ids[i] = r.obstaclePool.New(obstacle)
 
@@ -246,29 +239,60 @@ func (r *Recast) AddObstacles(obstacles ...*mesh.Hole) []uint32 {
 			polyPoints := cPolygon.Points()
 			for _, p := range obstacle.Points() {
 				if pointInPolygon(p, polyPoints) {
-					polyIdx := r.clipped2PolyMap[j]
-					r.polyExtraObstaclesMap[polyIdx] = append(r.polyExtraObstaclesMap[j], obstacle)
-					clippedMap[j]++
+					key := obstaclePolyPair{oId: ids[i], pId: j}
+					r.extraObstacleId2ClippedPoly[key] = newPaths
+
 					break loop
 				}
 			}
 		}
 	}
 
+	r.rebuild()
+	return ids
+}
+
+func (r *Recast) RemoveObstacles(ids ...uint32) {
+	for _, id := range ids {
+		for opKey := range r.extraObstacleId2ClippedPoly {
+			if opKey.oId == id {
+				delete(r.extraObstacleId2ClippedPoly, opKey)
+			}
+		}
+
+		r.obstaclePool.Delete(id)
+	}
+
+	r.rebuild()
+}
+
+func (r *Recast) rebuild() {
 	oPolygons := make([]*mesh.Polygon, 0, len(r.clippedPolygons))
 	for i, cPolygon := range r.clippedPolygons {
-		polyIdx := r.clipped2PolyMap[i]
-		if clippedMap[i] == 0 || len(r.polyExtraObstaclesMap[polyIdx]) == 0 {
+		extraClippedObstacles := make([]goclipper2.PathsD, 0)
+		for opKey, pathsD := range r.extraObstacleId2ClippedPoly {
+			if opKey.pId == i {
+				extraClippedObstacles = append(extraClippedObstacles, pathsD)
+			}
+		}
+
+		if len(extraClippedObstacles) == 0 {
 			oPolygons = append(oPolygons, cPolygon)
 			continue
 		}
 
-		newSubject := append(goclipper2.PathsD{toPathD(cPolygon.Points())}, subject...)
+		subject := goclipper2.PathsD{toPathD(cPolygon.Points())}
 		for _, hole := range cPolygon.Holes() {
-			newSubject = append(newSubject, toPathD(hole.Points()))
+			subject = append(subject, toPathD(hole.Points()))
 		}
 
-		polyOffsets := unionPathsD(newSubject, goclipper2.Positive)
+		for _, extraObstacle := range extraClippedObstacles {
+			subject = append(subject, extraObstacle...)
+		}
+
+		// union clipped polygons with external subject
+		polyOffsets := unionPathsD(subject, goclipper2.Positive)
+
 		rHoles := make([]*mesh.Hole, 0, len(cPolygon.Holes()))
 		subPolygons := make([][]geom.Vector2, 0)
 		for _, polyOffset := range polyOffsets {
@@ -292,6 +316,9 @@ func (r *Recast) AddObstacles(obstacles ...*mesh.Hole) []uint32 {
 		}
 	}
 
+	// TODO do we need to recalc raycast? raycast - check visibility to enemy through obstacle
+	r.extraClippedPolygons = r.extraClippedPolygons[:0]
+
 	triangles := make([]Triangle, 0)
 	for _, polygon := range oPolygons {
 		innerHoles := make([]*mesh.Hole, len(polygon.InnerHoles()))
@@ -299,13 +326,13 @@ func (r *Recast) AddObstacles(obstacles ...*mesh.Hole) []uint32 {
 			innerHoles[i] = mesh.NewObstacle(innerHole.Points(), 0, innerHole.Viewable())
 		}
 
-		obstacles := make([]*mesh.Hole, len(polygon.Obstacles()))
+		oObstacles := make([]*mesh.Hole, len(polygon.Obstacles()))
 		for i, obstacle := range polygon.Obstacles() {
-			obstacles[i] = mesh.NewObstacle(obstacle.Points(), 0, obstacle.Viewable())
+			oObstacles[i] = mesh.NewObstacle(obstacle.Points(), 0, obstacle.Viewable())
 		}
 
-		poly := mesh.NewPolygon(polygon.Points(), innerHoles, obstacles, 0)
-		r.clippedPolygons = append(r.clippedPolygons, poly)
+		poly := mesh.NewPolygon(polygon.Points(), innerHoles, oObstacles, 0)
+		r.extraClippedPolygons = append(r.extraClippedPolygons, poly)
 
 		pp := make([]*delaunay.Point, 0)
 		for _, p := range poly.Points() {
@@ -328,6 +355,8 @@ func (r *Recast) AddObstacles(obstacles ...*mesh.Hole) []uint32 {
 		triangles = append(triangles, cTriangles...)
 	}
 
+	r.prepareEdges(len(r.edges))
+
 	r.triangles = triangles
 	// generate graph based on triangles
 	r.visibilityGraph = r.generateGraph()
@@ -337,14 +366,6 @@ func (r *Recast) AddObstacles(obstacles ...*mesh.Hole) []uint32 {
 	for v := range r.visibilityGraph {
 		r.vertices[i] = v
 		i++
-	}
-
-	return ids
-}
-
-func (r *Recast) RemoveObstacles(ids ...uint32) {
-	for _, id := range ids {
-		r.obstaclePool.Delete(id)
 	}
 }
 
@@ -422,7 +443,7 @@ func (r *Recast) generateGraph() graphs.Graph[geom.Vector2] {
 
 func (r *Recast) prepareEdges(edgeLen int) {
 	r.edges = make([]*edge, 0, edgeLen)
-	for _, polygon := range r.polygons {
+	for _, polygon := range r.extraClippedPolygons {
 		r.edges = append(r.edges, polyToEdges(polygon.Points())...)
 		for _, hole := range polygon.Holes() {
 			r.edges = append(r.edges, polyToEdges(hole.Points())...)

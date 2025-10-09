@@ -4,7 +4,12 @@ import (
 	"github.com/bolom009/pathfind/mesh"
 )
 
-type ObstaclePool struct {
+type obstaclePolyPair struct {
+	oId uint32
+	pId int
+}
+
+type obstaclePool struct {
 	byID   map[uint32]uint32
 	items  []*mesh.Hole
 	ids    []uint32
@@ -12,8 +17,8 @@ type ObstaclePool struct {
 	nextID uint32
 }
 
-func NewObstaclePool(cap int) *ObstaclePool {
-	return &ObstaclePool{
+func newObstaclePool(cap int) *obstaclePool {
+	return &obstaclePool{
 		byID:   make(map[uint32]uint32, cap),
 		items:  make([]*mesh.Hole, 0, cap),
 		ids:    make([]uint32, 0, cap),
@@ -22,7 +27,7 @@ func NewObstaclePool(cap int) *ObstaclePool {
 	}
 }
 
-func (p *ObstaclePool) New(h *mesh.Hole) uint32 {
+func (p *obstaclePool) New(h *mesh.Hole) uint32 {
 	var id uint32
 	if n := len(p.free); n > 0 {
 		id = p.free[n-1]
@@ -41,7 +46,7 @@ func (p *ObstaclePool) New(h *mesh.Hole) uint32 {
 	return id
 }
 
-func (p *ObstaclePool) Delete(id uint32) {
+func (p *obstaclePool) Delete(id uint32) {
 	idx, ok := p.byID[id]
 	if !ok {
 		return
@@ -61,6 +66,6 @@ func (p *ObstaclePool) Delete(id uint32) {
 	p.free = append(p.free, id)
 }
 
-func (p *ObstaclePool) GetList() []*mesh.Hole {
+func (p *obstaclePool) GetList() []*mesh.Hole {
 	return p.items
 }

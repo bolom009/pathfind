@@ -13,7 +13,7 @@ func TestObstaclePool(t *testing.T) {
 	obstacle2 := []geom.Vector2{{10, 10}, {10, 30}, {30, 10}}
 	deleteList := make([]uint32, 0)
 
-	pool := NewObstaclePool(30)
+	pool := newObstaclePool(30)
 	idx := pool.New(mesh.NewObstacle(obstacle, 3, true))
 	deleteList = append(deleteList, idx)
 	assert.Equal(t, uint32(1), idx)
