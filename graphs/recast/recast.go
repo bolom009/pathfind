@@ -32,6 +32,7 @@ type Recast struct {
 	// extra obstacles
 	obstaclePool                *obstaclePool
 	extraClippedPolygons        []*mesh.Polygon
+	extraEdges                  []*edge
 	extraObstacleId2ClippedPoly map[obstaclePolyPair]goclipper2.PathsD
 }
 
@@ -443,10 +444,23 @@ func (r *Recast) generateGraph() graphs.Graph[geom.Vector2] {
 
 func (r *Recast) prepareEdges(edgeLen int) {
 	r.edges = make([]*edge, 0, edgeLen)
-	for _, polygon := range r.extraClippedPolygons {
+	for _, polygon := range r.polygons {
 		r.edges = append(r.edges, polyToEdges(polygon.Points())...)
 		for _, hole := range polygon.Holes() {
 			r.edges = append(r.edges, polyToEdges(hole.Points())...)
+		}
+	}
+
+	extraObstacles := r.obstaclePool.GetList()
+	for _, extraObstacle := range extraObstacles {
+		r.edges = append(r.edges, polyToEdges(extraObstacle.Points())...)
+	}
+
+	r.extraEdges = make([]*edge, 0, edgeLen)
+	for _, polygon := range r.extraClippedPolygons {
+		r.extraEdges = append(r.extraEdges, polyToEdges(polygon.Points())...)
+		for _, hole := range polygon.Holes() {
+			r.extraEdges = append(r.extraEdges, polyToEdges(hole.Points())...)
 		}
 	}
 }
@@ -588,25 +602,52 @@ func onSegment(p, q, r geom.Vector2) bool {
 	return qX <= math.Max(pX, rX) && qX >= math.Min(pX, rX) && qY <= math.Max(pY, rY) && qY >= math.Min(pY, rY)
 }
 
+// pointOnSegment helper function for check point on segment with epsilon
+func pointOnSegment(p, a, b geom.Vector2, eps float64) bool {
+	var (
+		pX, pY = float64(p.X), float64(p.Y)
+		aX, aY = float64(a.X), float64(a.Y)
+		bX, bY = float64(b.X), float64(b.Y)
+	)
+
+	if pX < math.Min(aX, bX)-eps || pX > math.Max(aX, bX)+eps ||
+		pY < math.Min(aY, bY)-eps || pY > math.Max(aY, bY)+eps {
+		return false
+	}
+
+	cross := (b.X-a.X)*(p.Y-a.Y) - (b.Y-a.Y)*(p.X-a.X)
+	return math.Abs(float64(cross)) <= eps
+}
+
 func (r *Recast) getVisiblePoints(point geom.Vector2) []geom.Vector2 {
-	visiblePoints := make([]geom.Vector2, len(r.vertices))
+	visiblePoints := make([]geom.Vector2, len(r.extraEdges))
 	count := 0
 
-	// TODO better but not so accurate :( ~99853ns
-	for _, v := range r.vertices {
-		hasIntersection := false
-		for _, edge := range r.edges {
-			if lineSegmentIntersection(edge.a, edge.b, v, point) {
-				hasIntersection = true
-				break
-			}
-		}
-
-		if !hasIntersection {
-			visiblePoints[count] = v
+	// TODO very fast check ~11146ns
+	for _, edge := range r.extraEdges {
+		if pointOnSegment(point, edge.a, edge.b, 1e-1) {
+			visiblePoints[count] = edge.a
+			count++
+			visiblePoints[count] = edge.b
 			count++
 		}
 	}
+
+	// TODO better but not so accurate :( ~99853ns
+	//for _, v := range r.vertices {
+	//	hasIntersection := false
+	//	for _, edge := range r.edges {
+	//		if lineSegmentIntersection(edge.a, edge.b, v, point) {
+	//			hasIntersection = true
+	//			break
+	//		}
+	//	}
+	//
+	//	if !hasIntersection {
+	//		visiblePoints[count] = v
+	//		count++
+	//	}
+	//}
 
 	// TODO more accurate but expensive :( ~190585ns
 	//for _, polygon := range r.polygons {
@@ -634,7 +675,7 @@ func (r *Recast) closestPointOnPolygon(startPoint geom.Vector2) (geom.Vector2, b
 	exist := false
 
 	// Check exterior ring
-	for _, polygon := range r.clippedPolygons {
+	for _, polygon := range r.extraClippedPolygons {
 		clippedPolygon := polygon.Points()
 		for i := 0; i < len(clippedPolygon); i++ {
 			p1 := clippedPolygon[i]

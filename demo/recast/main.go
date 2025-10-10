@@ -156,15 +156,15 @@ func main() {
 			}
 		}
 
-		drawTriangles(triangles, rl.LightGray, true)
+		drawTriangles(triangles, rl.LightGray)
 
 		for _, extraObstacle := range extraObstacles {
 			drawArea(extraObstacle.Points(), rl.Gray)
 		}
 
-		//if isDrawGraph {
-		//	drawGraph(pathfinder.GraphWithSearchPath(graphId, start, dest))
-		//}
+		if isDrawGraph {
+			drawGraph(pathfinder.Graph(graphId))
+		}
 		drawPath(start, dest, path, camera.Zoom, true)
 
 		rl.EndMode2D()
@@ -226,19 +226,13 @@ func drawPath(start, dest geom.Vector2, path []geom.Vector2, zoom float32, skipN
 	}
 }
 
-func drawTriangles(triangles []recast.Triangle, color rl.Color, drawEdges ...bool) {
+func drawTriangles(triangles []recast.Triangle, color rl.Color) {
 	for _, pp := range triangles {
 		rl.DrawTriangleFan([]rl.Vector2{
 			rl.NewVector2(pp[0].X, -pp[0].Y),
 			rl.NewVector2(pp[1].X, -pp[1].Y),
 			rl.NewVector2(pp[2].X, -pp[2].Y),
 		}, color)
-
-		if len(drawEdges) > 0 {
-			rl.DrawLineV(rl.NewVector2(pp[0].X, -pp[0].Y), rl.NewVector2(pp[1].X, -pp[1].Y), rl.Gray)
-			rl.DrawLineV(rl.NewVector2(pp[1].X, -pp[1].Y), rl.NewVector2(pp[2].X, -pp[2].Y), rl.Gray)
-			rl.DrawLineV(rl.NewVector2(pp[0].X, -pp[0].Y), rl.NewVector2(pp[2].X, -pp[2].Y), rl.Gray)
-		}
 	}
 }
 
@@ -273,7 +267,7 @@ func drawArea(polygon []geom.Vector2, color rl.Color) {
 func drawGraph(graph map[geom.Vector2][]geom.Vector2) {
 	for p, elems := range graph {
 		for _, elem := range elems {
-			rl.DrawLine(int32(p.X), int32(p.Y), int32(elem.X), int32(elem.Y), rl.NewColor(230, 41, 55, 30))
+			rl.DrawLineV(rl.NewVector2(p.X, -p.Y), rl.NewVector2(elem.X, -elem.Y), rl.DarkGray)
 		}
 	}
 }
