@@ -1,5 +1,5 @@
-github.com/bolom009/astar v1.0.1 h1:be17S68tyYD6aZD0IMjU2sUX19w6nJhLbmBlx1aIJEg=
-github.com/bolom009/astar v1.0.1/go.mod h1:2AGXVxVkduNPNnkJ0pYpqkJCfCDfFtZgtQ/JyFeZN2k=
+github.com/bolom009/astar v1.1.0 h1:tuUI6BKeiC+p/7W29wkOh9AwjeKdK8T9MCOSE61krzU=
+github.com/bolom009/astar v1.1.0/go.mod h1:Dq4u0l/vaYDkevwNsIBNTVDrK9+J1ylYfDY7NkmU/gs=
 github.com/bolom009/delaunay v1.1.0 h1:ezcqKjoW11tMj99aPPLkkzYujHhNsQXrEuZH0H/ZiC0=
 github.com/bolom009/delaunay v1.1.0/go.mod h1:DPz4UjKa218LrCbPxN8eq86fxAbIHHhKKGLATMZ2DbQ=
 github.com/bolom009/geom v1.7.0 h1:fmGnSMM5vz1EmjNrrJZlIz6SMJgzYspBMgQAerlWwdA=
@@ -10,8 +10,6 @@ github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/ebitengine/purego v0.8.2 h1:jPPGWs2sZ1UgOSgD2bClL0MJIqu58nOmIcBuXr62z1I=
 github.com/ebitengine/purego v0.8.2/go.mod h1:iIjxzd6CiRiOG0UyXP+V1+jWqUXVjPKLAI0mRfJZTmQ=
-github.com/fzipp/astar v0.3.0 h1:ONok5YsDmFAVpBvKBP30wU3YDNVU101VRWBTRCUsGqA=
-github.com/fzipp/astar v0.3.0/go.mod h1:KWXlNb4EkWXPckLv812VKCBie5lg3I38jj05whtQozM=
 github.com/gen2brain/raylib-go/raygui v0.0.0-20250215042252-db8e47f0e5c5 h1:RBIUgStpzR3g5g7qIkK4+sSbYXVTQXiXGqRZ84j3+ZY=
 github.com/gen2brain/raylib-go/raygui v0.0.0-20250215042252-db8e47f0e5c5/go.mod h1:Ji/uPEko2AUkcyPLAelEUa+E8Npc89/XY5Fo/lS/e3I=
 github.com/gen2brain/raylib-go/raylib v0.0.0-20250215042252-db8e47f0e5c5 h1:k8ZAxLgb/p5TvCi5VHFHM8JdnjwShNK4A0bLIwbktAU=

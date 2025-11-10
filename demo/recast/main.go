@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"math"
 	"time"
@@ -41,9 +42,11 @@ func main() {
 	}
 
 	var (
-		screen         = geom.Vector2{800, 600}
-		camera         = rl.NewCamera2D(rl.NewVector2(0, 0), rl.NewVector2(-screen.X/2, -screen.Y/2), 0, 0.5)
-		path           = make([]geom.Vector2, 0)
+		screen = geom.Vector2{800, 600}
+		camera = rl.NewCamera2D(rl.NewVector2(0, 0), rl.NewVector2(-screen.X/2, -screen.Y/2), 0, 0.5)
+		path   = make([]geom.Vector2, 0)
+		//start          = geom.Vector2{X: 192, Y: -267}
+		//dest           = geom.Vector2{X: -4, Y: 80}
 		start          = geom.Vector2{X: 202, Y: -268}
 		dest           = geom.Vector2{X: -4, Y: 84}
 		extraObstacles = map[uint32]*mesh.Hole{}
@@ -71,11 +74,22 @@ func main() {
 	path = pathfinder.Path(graphId, start, dest)
 	pathTime = time.Since(t).String()
 
-	visGraph := pathfinder.Graph(graphId)
+	visGraph := pathfinder.GraphWithSearchPath(graphId, start, dest)
 	for _, edges := range visGraph {
 		vertexCount++
 		edgesCount += len(edges)
 	}
+
+	m := make(map[string][]geom.Vector2)
+	ccc := 0
+	for k, v := range visGraph {
+		m[fmt.Sprintf("{%v,%v}", k.X, k.Y)] = v
+		ccc += len(v)
+	}
+
+	fmt.Println("PATH", len(visGraph), ccc, path)
+	b, _ := json.Marshal(m)
+	fmt.Println(412412, string(b))
 
 	trianglesCount = len(recastGraph.Triangles())
 	triangles := recastGraph.Triangles()

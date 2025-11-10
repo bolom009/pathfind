@@ -68,6 +68,27 @@ func (g *Grid) Cost(a, b geom.Vector2) float32 {
 	return g.costFunc(a, b)
 }
 
+const (
+	scaleFactor        = 1e6
+	hashRnd            = 1099511628211
+	hashDefault uint64 = 14695981039346656037
+)
+
+func (g *Grid) HashIndex(v geom.Vector2) int64 {
+	qx := quantizeFloat(v.X)
+	qy := quantizeFloat(v.Y)
+
+	var hash = hashDefault
+	hash = (hash * hashRnd) ^ uint64(qx)
+	hash = (hash * hashRnd) ^ uint64(qy)
+
+	return int64(hash)
+}
+
+func quantizeFloat(f float32) int64 {
+	return int64(f * scaleFactor)
+}
+
 func (g *Grid) IsRaycastHit(start, end geom.Vector2) bool {
 	return false
 }

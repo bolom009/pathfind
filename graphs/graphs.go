@@ -27,6 +27,7 @@ type NavGraph[Node comparable] interface {
 	GetClosestPoint(Node) (Node, bool)
 	IsRaycastHit(Node, Node) bool
 	Cost(Node, Node) float32
+	HashIndex(Node) int64
 }
 
 // Graph is represented by an adjacency list.

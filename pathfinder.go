@@ -56,7 +56,7 @@ func (p *Pathfinder[Node]) Path(graphID int, start, dest Node, opts ...PathOptio
 		return []Node{start, dest}
 	}
 
-	path := astar.FindPath[Node](vis, start, dest, g.Cost, g.Cost)
+	path := astar.FindPath[Node](vis, start, dest, g.HashIndex, g.Cost, g.Cost)
 
 	return path
 }

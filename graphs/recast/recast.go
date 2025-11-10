@@ -420,6 +420,27 @@ func (r *Recast) Cost(a geom.Vector2, b geom.Vector2) float32 {
 	return r.costFunc(a, b)
 }
 
+const (
+	scaleFactor        = 1e6
+	hashRnd            = 1099511628211
+	hashDefault uint64 = 14695981039346656037
+)
+
+func (r *Recast) HashIndex(v geom.Vector2) int64 {
+	qx := quantizeFloat(v.X)
+	qy := quantizeFloat(v.Y)
+
+	var hash = hashDefault
+	hash = (hash * hashRnd) ^ uint64(qx)
+	hash = (hash * hashRnd) ^ uint64(qy)
+
+	return int64(hash)
+}
+
+func quantizeFloat(f float32) int64 {
+	return int64(f * scaleFactor)
+}
+
 func (r *Recast) Triangles() []Triangle {
 	return r.triangles
 }
